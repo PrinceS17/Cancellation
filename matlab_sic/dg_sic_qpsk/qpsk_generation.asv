@@ -1,0 +1,10 @@
+function x = qpsk_generation(x0, beta, window, )
+% qpsk generation: row vector in, row vector out
+
+rct_filt = comm.RaisedCosineTransmitFilter('Shape','Normal',...
+    'RolloffFactor',0.3,...
+    'FilterSpanInSymbols',12,...
+    'OutputSamplesPerSymbol',12);
+x = step(rct_filt,x0')';
+
+end
