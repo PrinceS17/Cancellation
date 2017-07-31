@@ -1,0 +1,1 @@
+Shortcut is only for Visual Sudio on Windows where we need to know the configuration. In Linux, however, we can just copy the source into the uhd/host/example/transceiver folder and build it with CMakeLists.txt as usual.
