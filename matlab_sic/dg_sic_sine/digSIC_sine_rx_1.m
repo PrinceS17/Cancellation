@@ -1,7 +1,7 @@
 % received signal from sine wave, do the cancellation
 
 %% parameter definition
-rate = 500e3;
+rate = 2e6;
 freq = 100e3;
 signal_length = 1e4;
 estimator_length = 6;
@@ -11,7 +11,7 @@ t = (1:signal_length)/rate;
 x = 1*sin(2*pi*freq*t);
 
 %% obtain the received SINE wave from data file
-fid = fopen('sine_wave');
+fid = fopen('sine_wave_2M');
 a = fread(fid, [2, inf], 'float');
 y = a(1,:) + 1j*a(2,:);
 y = y(1:signal_length);

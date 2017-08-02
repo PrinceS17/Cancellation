@@ -7,7 +7,7 @@ rate = 1e6;                                     % symbol rate
 estimator_length = 20;                          % these number are all of symbol 
 pilot_length = 400;
 preamble_length = 32;                           % a preamble of 4 byte
-signal_length = 2e3;
+signal_length = 2e4;
 samp_per_sym = 6;
 ampl = 0.3;
 gain = 20;
@@ -24,14 +24,28 @@ tx_data = symbol(randi(4,1,signal_length - preamble_length - pilot_length));    
 x = [preamble, pilot, tx_data];                                                 % transmit signal
 x = qpsk_generation(x,0.2,15,samp_per_sym);
 
-% 1, generate received signal for simulation
-phi = pi/7;
-delay = 100;
-SNR = 50;
-y = [zeros(1,delay), x*exp(1i*phi)];             % y is longer than x
-y = awgn(y,SNR,'measured');                      % add noise
+
+%% write tx data & read received data from USRP
+% fid = fopen('qpsk_tx','wb');
+% xw = reshape([real(x);imag(x)],1,length(x)*2);
+% fwrite(fid, xw,'float');
+% fclose(fid);
+
+% % 1, generate received signal for simulation
+% phi = pi/7;
+% delay = 100;
+% SNR = 50;
+% y = [zeros(1,delay), x*exp(1i*phi)];             % y is longer than x
+% y = awgn(y,SNR,'measured');                      % add noise
 
 % 2, use received data from USRP
+fid = fopen('qpsk_output','rb');
+a = fread(fid, [2, inf], 'float');               
+tx_beg = 2.407e5;
+tx_end = tx_beg + signal_length*samp_per_sym;
+y = a(1, tx_beg:tx_end) + 1i*a(2,tx_beg:tx_end);
+fclose(fid);
+% figure(5);plot(real(y));
 
 
 %% digital cancellation
