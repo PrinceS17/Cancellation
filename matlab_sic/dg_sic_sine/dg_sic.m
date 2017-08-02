@@ -22,6 +22,9 @@ if st_rcv <= 0
     st_rcv = st_rcv + n;
 end
 h = A_inv*y(st_rcv:st_rcv + n)';
+plot(y(st_rcv:st_rcv + n));
+hold on;
+plot(A*h,':r');
 
 % cancellation: supposed received signal - SI: A*h
 N = L - max(start,st_rcv) - 2*k - n;

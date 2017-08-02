@@ -4,9 +4,9 @@
 rate = 2e6;
 freq = 100e3;
 signal_length = 1e4;
-estimator_length = 6;
+estimator_length = 80;
 estimator_start = 50;
-pilot_length = 100*rate/freq;
+pilot_length = 1000;
 t = (1:signal_length)/rate;
 x = 1*sin(2*pi*freq*t);
 
