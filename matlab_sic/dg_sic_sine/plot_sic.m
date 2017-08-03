@@ -1,6 +1,6 @@
 function fmax = plot_sic(x,y,y_clean,t,start,L,rate)
 % time domain
-figure
+
 tx = (1:length(x))/rate;
 ty = (1:length(y))/rate;
 subplot(2,1,1),plot(tx,x,':r');xlabel('time /s');hold on
