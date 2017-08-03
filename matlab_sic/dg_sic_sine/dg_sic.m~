@@ -29,25 +29,17 @@ A_inv = pinv(A);
 h = A_inv*y(st_rcv:st_rcv + n)';
 
 %% plot pilot and estimated pilot
-t = (start:start + n)/rate;
+t = (1:n)/rate;
 figure
-plot(t,x(start:start + n),':r',t,y(st_rcv:st_rcv + n),'b',t,(A*h)','--g');
-title('TX & RX pilot and estimated pilot');
-xlabel('time /s'); ylabel('amplitude');
-legend('TX pilot','RX pilot','estimated pilot');
+plot(t, y(st_rcv:st_rcv + n));
+hold on;
+plot(A*h,':r');
 
 %% cancellation: supposed received signal - SI: A*h
 N = L - max(start,st_rcv) - 2*k - n;
 A = toeplitz(x(start + n + k - 1:start + N + n + k -1),fliplr(x(start + n - k:start + n + k -1)));
 A = fliplr(A);
 y_clean = y(st_rcv + n :st_rcv + n + N  ) - (A*h)';
-
-%% plot TX & RX data
-figure 
-plot(t,x(start + n + 1:end),':r',t,y(st_rcv + n + 1:end),'b',t,(A*h)','--g');
-title('TX, RX and estimated data');
-xlabel('time /s'); ylabel('amplitude');
-legend('TX data','RX data','estimated data'x);
 
 
 end
