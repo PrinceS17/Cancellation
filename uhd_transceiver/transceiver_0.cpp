@@ -27,6 +27,7 @@ void transmitter(
     wave_table_class wave_table,
     uhd::tx_streamer::sptr tx0,
     uhd::tx_metadata_t md,
+const string file,
     size_t step,
     size_t index,
     int num_channels
@@ -34,6 +35,11 @@ void transmitter(
 {
 
 	int num = 0;
+	
+	// write to file
+	ofstream tx_out;
+	tx_out.open(file.c_str(),ios::out | ios::binary);
+	
 	while(not stop_signal_called)	
 	{
 		for(size_t n = 0; n < buff.size(); n ++)
@@ -43,9 +49,23 @@ void transmitter(
 		num += tx0->send(&buff.front(),buff.size(),md);   // send tx data from buff
 		md.start_of_burst = false;
 		md.has_time_spec = false;
+		
+		if (tx_out.is_open())
+		{
+            		tx_out.write((const char*)&buff.front(), buff.size()*sizeof(float)*2);
+			if(num*sizeof(float)*2 > 30e6*sizeof(char)) 
+				{						
+					tx_out.close();
+					tx_out.open(file.c_str(),ios::binary | ios::out);
+					num = 0;
+					cout<<"New tx_out file!"<<endl;
+				}
+		}
 	}
+	tx_out.close();	
 
 	// end sending
+	
 	md.end_of_burst = true;
 	tx0->send("",0,md);
 	cout<<endl<<"TX done!"<<endl<<endl;
@@ -134,7 +154,7 @@ template<typename samp_type> void recv_to_file(
 			if (outfile.is_open())
 			{
             			outfile.write((const char*)&rbuff.front(), num_rx_samps*sizeof(samp_type));
-				if(num_total_samps*sizeof(samp_type) > 10e6*sizeof(char)) 
+				if(num_total_samps*sizeof(samp_type) > 30e6*sizeof(char)) 
 					{
 						outfile.close();
 						outfile.open(file.c_str(),ios::binary | ios::out);
@@ -169,10 +189,10 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	string file = "output";
 
 	double rate,rx_rate,tx_rate,freq,wave_freq,gain,bw,ampl;
-	rate = 1e6;
-	wave_freq = 200e3;
+	rate = 2e6;
+	wave_freq = 100e3;
 	freq = 915e6;
-	gain = 10;
+	gain = 25;
 	bw = 1e6;
 	rx_rate = rate;
 	tx_rate = rate;
@@ -222,7 +242,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	tx_usrp->set_tx_freq(freq);
 	rx_usrp->set_rx_freq(freq);
 
-	tx_usrp->set_tx_gain(1);
+	tx_usrp->set_tx_gain(gain);
 	rx_usrp->set_rx_gain(gain);
 	
 	tx_usrp->set_tx_subdev_spec(subdev);
@@ -292,8 +312,9 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	md.time_spec = uhd::time_spec_t(0.1);   // what's the meaning -- sending time   "tx_usrp->get_time_now() "
 	
     // use thread_group to send and receive data at the same time
+	string txfile = "tx_out";
     boost::thread_group transmit_thread;
-    transmit_thread.create_thread(boost::bind(&transmitter, buff, wave_table, tx0, md, step, index, num_channels));
+    transmit_thread.create_thread(boost::bind(&transmitter, buff, wave_table, tx0, md,txfile, step, index, num_channels));
 
 
 // receive begin
