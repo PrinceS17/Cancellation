@@ -8,6 +8,7 @@
 #include <boost/thread.hpp>
 #include <boost/math/special_functions/round.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
 #include "wavetable.hpp"
 //#include <WinBase.h>
 #include <iostream>
@@ -186,10 +187,11 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	string pps = "internal";    // what's pps?
 	string tx_args,rx_args,channel_list;
 	string type = "float";
-	string file = "output";
+	string file = "sine_wave";
 
 	double rate,rx_rate,tx_rate,freq,wave_freq,gain,bw,ampl;
 	rate = 2e6;
+		file = file +"_" + boost::lexical_cast<string>(rate/1e6) + "M";
 	wave_freq = 100e3;
 	freq = 915e6;
 	gain = 25;
