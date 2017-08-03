@@ -3,120 +3,131 @@
 #include <complex>
 #include <fstream>
 #include <vector>
-#include <csignal>
-#include <uhd/utils/thread_priority.hpp>
-#include <uhd/utils/safe_main.hpp>
-#include <uhd/usrp/multi_usrp.hpp>
-#include <uhd/exception.hpp>
-#include <uhd/types/tune_request.hpp>
-#include <boost/program_options.hpp>
-#include <boost/format.hpp>
-#include <boost/thread.hpp>
-#include <boost/algorithm/string.hpp>
-#include <wavetable.hpp>
 #include <Eigen/Dense>
 using namespace Eigen;
 using namespace std;
-namespace po = boost::program_options;
 
 // cancellation without receiving all the packets
 // now the sbuff, rbuff are the matching packets after capturing the bound of symbol
 // still need read data from file (matrix A and A_inv)
 
-// 1, capture the bound of symbol (/packet?) i.e. relation between TX & RX
-// 2, from pilot: calculate pilot information A, A_inv and h, 1) h = A_inv*y
-// 3, from signal: use 1,2 to do the cancellation : 2) y' = A'h 
+// 1, capture the bound of symbol (/packet?) i.e. relation between TX & RX						 need to be done
+// 2, from pilot: calculate pilot information A, A_inv and h, 1) h = A_inv*y                     done
+// 3, from signal: use 1,2 to do the cancellation : 2) y' = A'h                                  done
 
- 
-MatrixXf x2A(VectorXf x, int l, int k)
+MatrixXf x2A(VectorXf& x, int l, int k)		// Note A(0,0) is x(0), so the 1st y is y(k)
 {
-	int n = l - 1;
+	int n = l - 1;							// l is the length of [x0, x1, ..., xn]
 	int st = k;								// normally x.size() should not be less than n + 2k
 	MatrixXf A(n + 1, 2*k);					// should be check a third time!
 	for(int i = 0; i < n + 1; i++)
 	for(int j = 0; j < 2*k; j++)
 	{
-		A(i,j) = x[st - k + j + i];
+		A(i,j) = x(st - k + j + i);
  	}
 	return A;
 }
 
-MatrixXf x2A(VectorXf x, int k)
+MatrixXf x2A(VectorXf& x, int k)
 {
 	int lx = x.size();	
-	return x2A(x,lx - 2*k,k);			   // every points are used
+	MatrixXf A = x2A(x, lx - 2*k + 1, k);			   // every points are used
+	return A;
 }
 
-// 1, sync ?
+int dg_sync(VectorXf& preamble, VectorXf& rbuff)
+{
+	int cor_length = rbuff.size() - preamble.size() + 1;
+	VectorXf Cor(cor_length);					   // make the preamble
+	for(int i = 0; i < cor_length; i++)
+		Cor(i) = preamble.transpose()*rbuff;
+	Index *index;								   // simply find the max number
+	Cor.maxCoeff(index);
+	return *index - 1;
+}
 
-
-//  send following part as an argument
-// 	samp_type ** A = new samp_type *[l];
-//  for(int i = 0; i < l; i++)
-//  A[i] = new samp_type[2*k];
-
-VectorXf estimate(VectorXf sbuff, VectorXf rbuff, int estimator_length)  // 2, estimation
+VectorXf estimate(VectorXf& sbuff, VectorXf& rbuff, int estimator_length)  // 2, estimation: sbuff: -k, ..., n+k-1; rbuff: 0,...,n
 {
 	// definition
 	int k = estimator_length/2;
-
-	// process for sbuff here
-
-	if(sbuff.size() != rbuff.size()) 
+	if(sbuff.size() != rbuff.size() + 2*k - 1) 
 	{	
-		cout<<"error: length of pilot and rx signal don't equal!"<<endl;
+		cout<<"\n error: length of pilot and rx signal don't match!"<<endl;
 		exit(0);
 	}
 
 	// generate A
 	MatrixXf A = x2A(sbuff, k);
 	VectorXf h;
-	h = (A.transpose()*A).inverse()*A.transpose()*rbuff;	    // since A's psuedo inverse is (A'A)^-1 * A', it's A_inv*y
+	MatrixXf A2 = A.transpose()*A;					   // this way may not be efficient but work, need improving
+	if(!A2.determinant())
+	{
+		cout<<"\n error: A'A is not invertiable!"<<endl;
+		exit(0);
+	}
+	h = A2.inverse()*A.transpose()*rbuff;			   // since A's psuedo inverse is (A'A)^-1 * A', it's A_inv*y
 	return h;
 
 }
 
-
-VectorXf dg_cancel(VectorXf sbuff, VectorXf rbuff, VectorXf h, int estimator_length)  //3, cancellation
+VectorXf dg_cancel(VectorXf& sbuff, VectorXf& rbuff, VectorXf& h, int estimator_length)  //3, cancellation
 {
 	// definition
 	int k = estimator_length/2;
 
 	// process for buff here
 
-	if(sbuff.size() != rbuff.size()) 
+	if(sbuff.size() != rbuff.size() + 2*k - 1) 
 	{	
-		cout<<"error: length of pilot and rx signal don't equal!"<<endl;
+		cout<<"error: length of pilot and rx signal don't match!"<<endl;
 		exit(0);
 	}
 
 	// generate A1
 	MatrixXf A1 = x2A(sbuff, k);
-	VectorXf y_clean;
-	y_clean = A1*h;
-	return y_clean;
+	return A1*h;
 
 }
 
+//void main()
+//{
+//	// many preparations
+//	int estimator_length;
+//	int pilot_length;
+//	int samp_rate;
+//
+//	
+//	VectorXf tx_pilot, rx_pilot;     // should have complete definition later
+//
+//	// estimate
+//	VectorXf h;
+//	h = estimate(tx_pilot, rx_pilot, estimator_length);
+//
+//	// obtain new sequence of TX and RX
+//	VectorXf tx_data, rx_data;
+//	VectorXf y_clean;
+//	y_clean = dg_cancel(tx_data, rx_data, h, estimator_length);
+//
+//	// write to file and some other work
+//
+//}
+
+
+
 void main()
 {
-	// many preparations
-	int estimator_length;
-	int pilot_length;
-	int samp_rate;
+	// only for test
+	VectorXf x(10),y(7);
+	x<<1, 2, 3, 4, 5, 6, 7, 8, 9, 10;
+	y<<-3, 8, -1, 0, 1, 2, 3;
+	cout<<"x: \n"<<x.transpose()<<endl;
+	cout<<"y: \n"<<y.transpose()<<endl;
+	int k = 2;
+	VectorXf h = estimate(x, y, 2*k);
+	cout<<"h : \n"<<h<<endl;
+	//MatrixXf m1 = x2A(x, x.size()-2*k, k);
+	//cout<<"x to A: \n"<<m1<<endl;
 
-	
-	VectorXf tx_pilot, rx_pilot;     // should have complete definition later
 
-	// estimate
-	VectorXf h;
-	h = estimate(tx_pilot, rx_pilot, estimator_length);
-
-	// obtain new sequence of TX and RX
-	VectorXf tx_data, rx_data;
-	VectorXf y_clean;
-	y_clean = dg_cancel(tx_data, rx_data, h, estimator_length);
-
-	// write to file and some other work
 
 }
