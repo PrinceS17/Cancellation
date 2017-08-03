@@ -1,4 +1,4 @@
-function [y_clean, MSE] = dg_sic_qpsk(x, y, samp_rate, preamble, pilot, estimator_length, start)
+function [y_clean, MSE] = dg_sic_qpsk(x, y, rate preamble, pilot, estimator_length, start)
 % digital cancellation for QPSK, start is where we begin to estimate the
 % channel
 
@@ -21,12 +21,9 @@ delay = location - length(preamble);          % calculate the delay
 st_rcv = start + delay;                       % get the start of pilot in received signal
 % st_rcv = start ;
 
-
 % plot the preamble
 figure
-t = (start:length(preamble))/samp_rate;
-plot(t, preamble(start:end)); hold on;
-plot(t, y(st_rcv:st_rcv + length(preamble) - start), ':r');
+
 
 
 % channel estimation
@@ -38,7 +35,7 @@ h = A_inv*conj(y(st_rcv:st_rcv + n)');
 
 
 % digital cancellation
-N = ly - max(st_rcv,start) - 2*k - n;
+N = ly - st_rcv - 2*k - n;
 A = toeplitz(x(start + n + k - 1:start + N + n + k -1),fliplr(x(start + n - k:start + n + k -1)));
 A = fliplr(A);
 y_clean = y(st_rcv + n:st_rcv + n + N) - conj(A*h)';

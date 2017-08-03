@@ -1,6 +1,7 @@
 function y = plot_constellation(x, y, y_clean)
 % plot the constellation of x, y, y_clean
 
+figure
 subplot(2,2,1),plot(x,'.');
 xlabel('In phase'); ylabel('Quadrature'); title('x');
 title('x'); xlim([-2 2]); ylim([-2 2]);

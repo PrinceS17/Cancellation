@@ -26,7 +26,7 @@ x = qpsk_generation(x,0.5,4,samp_per_sym);
 
 
 %% write tx data & read received data from USRP
-% fid = fopen('qpsk_tx','wb');
+% fid = fopen('qpsk_output','wb');
 % xw = reshape([real(x);imag(x)],1,length(x)*2);
 % fwrite(fid, xw,'float');
 % fclose(fid);
@@ -39,10 +39,10 @@ x = qpsk_generation(x,0.5,4,samp_per_sym);
 % y = awgn(y,SNR,'measured');                      % add noise
 
 % 2, use received data from USRP
-fid = fopen('qpsk_output','rb');
+fid = fopen('qpsk_tx','rb');
 a = fread(fid, [2, inf], 'float');               
 tx_beg = 2.407e5;
-tx_end = tx_beg + signal_length*samp_per_sym;
+tx_end = tx_beg + signal_length*samp_per_sym - 1;
 y = a(1, tx_beg:tx_end) + 1i*a(2,tx_beg:tx_end);
 fclose(fid);
 % figure(5);plot(real(y));
@@ -55,7 +55,7 @@ preamble_seq = x(1:bound1);
 pilot = x(bound1 + 1:bound2);
 estimator_length_seq = estimator_length*samp_per_sym;
 start = start*8 - 7;
-[y_clean, MSE] = dg_sic_qpsk(x, y, preamble_seq, pilot, estimator_length_seq, start);
+[y_clean, MSE] = dg_sic_qpsk(x, y, rate*samp_per_sym, preamble_seq, pilot, estimator_length_seq, start);
 MSE,
 
 %% plot: time, frequency domain and constellation
