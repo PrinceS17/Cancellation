@@ -3,7 +3,7 @@
 % N(data length), preamble, preamble_length, delay, x, y, A, y_clean
 
 Tnum = 12;                      % number of T to show
-ymax = 0.08;                    % max of y window to show: 1 for sine wave; 0.08 for qpsk
+ymax = 0.8;                    % max of y window to show: 1 for sine wave; 0.08 for qpsk
 
 %% plot h
 figure
