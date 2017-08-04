@@ -30,6 +30,6 @@ fclose(fid);
 y_clean = dg_sic(x,y,rate,freq,estimator_length,estimator_start,pilot_length,signal_length);
 
 %% plot: time & frequency domain
-plot_sic(x,y,y_clean,rate);
+% plot_sic(x,y,y_clean,rate);
 
 
