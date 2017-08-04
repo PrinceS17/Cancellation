@@ -8,7 +8,8 @@ n = pilot_length;
 start = estimator_start;
 L = signal_length;
 N_T = round(rate/freq);
-preamble = x(start:start + N_T - 1);
+preamble_length = N_T;
+preamble = x(1:N_T);
 
 %% synchronization: detect corresponding y(n)
 % Cor = xcorr(y,[zeros(1,L-n),x(start - k:start + n - k -1)]);
@@ -16,7 +17,8 @@ Cor = xcorr(y, [zeros(1, L - N_T), preamble]);
 loc = pickpeaks(Cor,round(length(Cor)/2));          % ideal situation: just find peaks
 loc = loc(Cor(loc) > 0.9*max(Cor));                % choose peaks that are not too small
 location = min(loc);
-st_rcv = location - n + k + 1;        % y(st_rcv) -> x(start)
+st_rcv = location - N_T + 1;        % y(st_rcv) -> x(start)
+delay = st_rcv - 1;
 if st_rcv <= 0
     st_rcv = st_rcv + n;
 end
