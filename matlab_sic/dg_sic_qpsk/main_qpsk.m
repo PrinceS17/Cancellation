@@ -39,9 +39,10 @@ x = qpsk_generation(x,0.5,4,samp_per_sym);
 % y = awgn(y,SNR,'measured');                      % add noise
 
 % 2, use received data from USRP
-fid = fopen('qpsk_tx','rb');
+fid = fopen('qpsk_output','rb');
 a = fread(fid, [2, inf], 'float');               
-tx_beg = 2.407e5;
+% tx_beg = 2.407e5;
+tx_beg = 1;
 tx_end = tx_beg + signal_length*samp_per_sym - 1;
 y = a(1, tx_beg:tx_end) + 1i*a(2,tx_beg:tx_end);
 fclose(fid);
@@ -59,9 +60,9 @@ start = start*8 - 7;
 MSE,
 
 %% plot: time, frequency domain and constellation
-figure(1);
-plot_sic(real(x), real(y), real(y_clean), t, start, signal_length, 6*rate);
-
-figure(2);
-plot_constellation(x, y, y_clean);
+% figure(1);
+% plot_sic(real(x), real(y), real(y_clean), t, start, signal_length, 6*rate);
+% 
+% figure(2);
+% plot_constellation(x, y, y_clean);
 

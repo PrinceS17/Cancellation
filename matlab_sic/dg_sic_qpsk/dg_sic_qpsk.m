@@ -1,4 +1,4 @@
-function [y_clean, MSE] = dg_sic_qpsk(x, y, samp_rate, preamble, pilot, estimator_length, start)
+function [y_clean, MSE] = dg_sic_qpsk(x, y, rate, preamble, pilot, estimator_length, start)
 % digital cancellation for QPSK, start is where we begin to estimate the
 % channel
 
@@ -21,18 +21,17 @@ delay = location - length(preamble);          % calculate the delay
 st_rcv = start + delay;                       % get the start of pilot in received signal
 % st_rcv = start ;
 
-
-% plot the preamble
-figure
-t = (start:length(preamble))/samp_rate;
-plot(t, preamble(start:end)); hold on;
-plot(t, y(st_rcv:st_rcv + length(preamble) - start), ':r');
+% % plot the preamble
+% figure
+% t = (start:length(preamble))/samp_rate;
+% plot(t, preamble(start:end)); hold on;
+% plot(t, y(st_rcv:st_rcv + length(preamble) - start), ':r');
 
 
 % channel estimation
-A = toeplitz(x(start + k - 1:start + n + k - 1),fliplr(x(start - k :start + k -1)));
-A = fliplr(A);
-A_inv = pinv(A);
+A0 = toeplitz(x(start + k - 1:start + n + k - 1),fliplr(x(start - k :start + k -1)));
+A0 = fliplr(A0);
+A_inv = pinv(A0);
 h = A_inv*conj(y(st_rcv:st_rcv + n)');
 % self_test = y(st_rcv:st_rcv + n) - conj(A*h)';   % ' is conjugate transpose !!
 
@@ -43,5 +42,8 @@ A = toeplitz(x(start + n + k - 1:start + N + n + k -1),fliplr(x(start + n - k:st
 A = fliplr(A);
 y_clean = y(st_rcv + n:st_rcv + n + N) - conj(A*h)';
 MSE = norm(y_clean)^2/(N + 1);
+
+% plot the figures
+figure_sic
 
 end
