@@ -1,4 +1,6 @@
 % received signal from sine wave, do the cancellation
+clear all
+close all
 
 %% parameter definition
 rate = 2e6;
@@ -6,7 +8,7 @@ freq = 100e3;
 signal_length = 1e4;
 estimator_length = 40;
 estimator_start = 50;
-pilot_length = 1000;
+pilot_length = 500;
 t = (1:signal_length)/rate;
 
 %% obtain the transmitted signal also from file
@@ -21,7 +23,7 @@ fclose(fid);
 %% obtain the received SINE wave from data file
 fid = fopen('sine_wave_2M');
 a = fread(fid, [2, inf], 'float');
-st = 1;
+st = 18;
 y = a(1,st:signal_length) + 1i*a(2,st:signal_length);
 y = real(y);     % only use real part now
 fclose(fid);
@@ -31,5 +33,4 @@ y_clean = dg_sic(x,y,rate,freq,estimator_length,estimator_start,pilot_length,sig
 
 %% plot: time & frequency domain
 % plot_sic(x,y,y_clean,rate);
-
 

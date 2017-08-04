@@ -4,6 +4,7 @@ function y_clean = dg_sic(x,y,rate,freq,estimator_length,estimator_start,pilot_l
 % 2, we can calculate A and A_inv outside, doen't matter in Matlab though
 
 k = floor(estimator_length/2);
+k = max(1,k);
 n = pilot_length;
 start = estimator_start;
 L = signal_length;
@@ -13,15 +14,18 @@ preamble = x(1:N_T);
 
 %% synchronization: detect corresponding y(n)
 % Cor = xcorr(y,[zeros(1,L-n),x(start - k:start + n - k -1)]);
-Cor = xcorr(y, [zeros(1, L - N_T), preamble]);
-loc = pickpeaks(Cor,round(length(Cor)/2));          % ideal situation: just find peaks
-loc = loc(Cor(loc) > 0.9*max(Cor));                % choose peaks that are not too small
-location = min(loc);
-st_rcv = location - N_T + 1;        % y(st_rcv) -> x(start)
-delay = st_rcv - 1;
-if st_rcv <= 0
-    st_rcv = st_rcv + n;
-end
+% Cor = xcorr(y, [zeros(1, L - N_T), preamble]);
+% loc = pickpeaks(Cor,round(length(Cor)/2));          % ideal situation: just find peaks
+% loc = loc(Cor(loc) > 0.9*max(Cor));                % choose peaks that are not too small
+% location = min(loc);
+% st_rcv = location - N_T + 1;        % y(st_rcv) -> x(start)
+% delay = st_rcv - 1;
+% if st_rcv <= 0
+%     st_rcv = st_rcv + n;
+% end
+
+delay = 0;
+st_rcv = 1;
 
 %% estimation of pilot & figure of h
 A0 = toeplitz(x(start + k - 1:start + n + k - 1),fliplr(x(start - k :start + k -1)));
