@@ -1,7 +1,8 @@
-function [y_clean, MSE] = dg_sic_qpsk(x, y, rate, preamble, pilot, estimator_length, start)
+function [y_clean, MSE] = dg_sic_qpsk(x, y, rate, N_T, preamble, pilot, estimator_length, start)
 % digital cancellation for QPSK, start is where we begin to estimate the
 % channel
 
+preamble_length = length(preamble);
 k = floor(estimator_length/2);
 lx = length(x);
 ly = length(y);

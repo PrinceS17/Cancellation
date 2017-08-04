@@ -4,19 +4,19 @@
 rate = 2e6;
 freq = 100e3;
 signal_length = 1e4;
-estimator_length = 80;
+estimator_length = 40;
 estimator_start = 50;
 pilot_length = 1000;
 t = (1:signal_length)/rate;
 
 %% obtain the transmitted signal also from file
- x = 1*sin(2*pi*freq*t);
+% x = 1*sin(2*pi*freq*t);
 
-%  fid = fopen('tx_out');
-% a = fread(fid,[2 inf], 'float');
-% x = a(1,1:signal_length) + 1i*a(2,1:signal_length);
-% x = real(x);
-% fclose(fid);
+ fid = fopen('tx_out');
+a = fread(fid,[2 inf], 'float');
+x = a(1,1:signal_length) + 1i*a(2,1:signal_length);
+x = real(x);
+fclose(fid);
 
 %% obtain the received SINE wave from data file
 fid = fopen('sine_wave_2M');

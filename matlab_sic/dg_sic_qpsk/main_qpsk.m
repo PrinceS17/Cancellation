@@ -56,7 +56,7 @@ preamble_seq = x(1:bound1);
 pilot = x(bound1 + 1:bound2);
 estimator_length_seq = estimator_length*samp_per_sym;
 start = start*8 - 7;
-[y_clean, MSE] = dg_sic_qpsk(x, y, rate*samp_per_sym, preamble_seq, pilot, estimator_length_seq, start);
+[y_clean, MSE] = dg_sic_qpsk(x, y, rate*samp_per_sym, samp_per_sym, preamble_seq, pilot, estimator_length_seq, start);
 MSE,
 
 %% plot: time, frequency domain and constellation

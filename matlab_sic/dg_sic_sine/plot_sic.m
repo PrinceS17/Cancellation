@@ -18,7 +18,8 @@ figure
 plot(fsx,fftshift(fx),':r');hold on
 plot(fsy,fftshift(fy),'b');xlabel('frequency /Hz');hold on
 plot(fsy_clean,fftshift(fy_clean),'-g');
+title('Spectrum of TX, RX and cancelled signal');
 ylabel('dB');
-legend('FFT\{x\}','FFT\{y\}','FFT\{y_{clean}\}');
+legend('TX','RX','RX_{cancelled}');
 
 end
