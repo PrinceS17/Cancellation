@@ -12,11 +12,11 @@ n = length(pilot) + length(preamble) - start - k;    % use pilot after start to 
 % length of estimator, or we can't get the right channel!!
 
 Cor = xcorr(conj(y), [zeros(1,ly - length(preamble)),preamble]);      % for complex number
-% location = pickpeaks(abs(Cor),1,0);                                   % find the max's index, hard judge?
+location = pickpeaks(abs(Cor),1,0);                                   % find the max's index, hard judge?
 
-loc = pickpeaks(Cor,round(length(Cor)/4));          % ideal situation: just find peaks
-loc = loc(Cor(loc) > 0.95*max(Cor));                % choose peaks that are not too small
-location = min(loc);
+% loc = pickpeaks(Cor,round(length(Cor)/4));          % ideal situation: just find peaks
+% loc = loc(Cor(loc) > 0.95*max(Cor));                % choose peaks that are not too small
+% location = min(loc);
 
 delay = location - length(preamble);          % calculate the delay
 st_rcv = start + delay;                       % get the start of pilot in received signal

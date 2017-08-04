@@ -20,11 +20,11 @@ x = [preamble_sym, pilot_sym, tx_data];
 x = qpsk_generation(x,0.5,4,samp_per_sym);
 
 %% write tx data & read received data from USRP
-% % write tx data into file
-% fid = fopen('qpsk_output','wb');
-% xw = reshape([real(x);imag(x)],1,length(x)*2);
-% fwrite(fid, xw,'float');
-% fclose(fid);
+% write tx data into file
+fid = fopen('qpsk_tx','wb');
+xw = reshape([real(x);imag(x)],1,length(x)*2);
+fwrite(fid, xw,'float');
+fclose(fid);
 
 % % 1, generate received signal for simulation
 % phi = pi/7;
@@ -46,6 +46,3 @@ fclose(fid);
 preamble = x(1:preamble_length);
 pilot = x(preamble_length + 1:preamble_length + pilot_length);
 y_clean = dg_sic_qpsk(x,y,samp_rate,samp_per_sym,preamble,pilot,estimator_length,start);
-
-
-

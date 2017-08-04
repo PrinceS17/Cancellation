@@ -4,7 +4,7 @@
 
 %% parameter definition & wave generation
 rate = 1e6;                                     % symbol rate
-estimator_length = 20;                          % these number are all of symbol 
+estimator_length = 10;                          % these number are all of symbol 
 pilot_length = 400;
 preamble_length = 32;                           % a preamble of 4 byte
 signal_length = 2e4;
