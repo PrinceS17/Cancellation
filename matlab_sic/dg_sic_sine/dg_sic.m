@@ -7,7 +7,7 @@ k = floor(estimator_length/2);
 n = pilot_length;
 start = estimator_start;
 L = signal_length;
-N_T = round(rate*freq);
+N_T = round(rate/freq);
 preamble = x(start:start + N_T - 1);
 
 
@@ -22,11 +22,13 @@ if st_rcv <= 0
     st_rcv = st_rcv + n;
 end
 
-%% estimation of pilot
+%% estimation of pilot & figure of h
 A = toeplitz(x(start + k - 1:start + n + k - 1),fliplr(x(start - k :start + k -1)));
 A = fliplr(A);
 A_inv = pinv(A);
 h = A_inv*y(st_rcv:st_rcv + n)';
+figure
+stem(h); title('coefficient of h'); 
 
 %% plot pilot and estimated pilot
 t = (start:start + n)/rate;
@@ -43,11 +45,12 @@ A = fliplr(A);
 y_clean = y(st_rcv + n :st_rcv + n + N  ) - (A*h)';
 
 %% plot TX & RX data
+t1 = (start + n:start + n + N)/rate;
 figure 
-plot(t,x(start + n + 1:end),':r',t,y(st_rcv + n + 1:end),'b',t,(A*h)','--g');
+plot(t1,x(start + n:start + n + N),':r',t1,y(st_rcv + n:st_rcv + n + N),'b',t1,(A*h)','--g');
 title('TX, RX and estimated data');
 xlabel('time /s'); ylabel('amplitude');
-legend('TX data','RX data','estimated data'x);
+legend('TX data','RX data','estimated data');
 
 
 end
