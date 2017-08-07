@@ -7,13 +7,9 @@
 using namespace Eigen;
 using namespace std;
 
-// cancellation without receiving all the packets
-// now the sbuff, rbuff are the matching packets after capturing the bound of symbol
-// still need read data from file (matrix A and A_inv)
-
-// 1, capture the bound of symbol (/packet?) i.e. relation between TX & RX						 need to be done
-// 2, from pilot: calculate pilot information A, A_inv and h, 1) h = A_inv*y                     done
-// 3, from signal: use 1,2 to do the cancellation : 2) y' = A'h                                  done
+// cancellation function: called in main
+// 1, matrix A and A_inv: now calculated by function, in fact should store into a global object
+// 2, MatrixXf: now use float real type, MatrixXcf probably needed in the future 
 
 MatrixXf x2A(VectorXf& x, int l, int k)		// Note A(0,0) is x(0), so the 1st y is y(k)
 {
@@ -46,7 +42,7 @@ int dg_sync(VectorXf& preamble, VectorXf& rbuff)   // return delay in rbuff
 	return *index - 1;
 }
 
-VectorXf estimate(VectorXf& sbuff, VectorXf& rbuff, int estimator_length)  // 2, estimation: sbuff: -k, ..., n+k-1; rbuff: 0,...,n
+VectorXf estimate(VectorXf& sbuff, VectorXf& rbuff, int estimator_length)  // 2, estimation: sbuff: -k, ..., n+k-1; rbuff: 0,...,n (now estimate with A calculating repeatly! )
 {
 	// definition
 	int k = estimator_length/2;
@@ -89,19 +85,18 @@ VectorXf dg_cancel(VectorXf& sbuff, VectorXf& rbuff, VectorXf& h, int estimator_
 
 }
 
-void main()
+void dg_sic(
+	VectorXf x, 
+	VectorXf y,							       // initial signal got from UHD: here haven't defined complex number
+	VectorXf preamble,					       // should have complete definition later
+	int estimator_length,
+	int preamble_length,
+	int pilot_length,
+	int signal_length,						   // the length of TX which made signal_length + delay <= RX's length, may be redefine
+	int samp_rate
+	)
 {
-	// many preparations
-	int estimator_length;
-	int preamble_length;
-	int pilot_length;
-	int signal_length;						   // the length of TX which made signal_length + delay <= RX's length, may be redefine
-	int samp_rate;
-	int k = estimator_length/2
-
-	VectorXf x, y;							   // initial signal got from UHD: here haven't defined complex number
-	VectorXf preamble;					       // should have complete definition later
-
+	int k = estimator_length/2;
 	int delay = dg_sync(preamble, y);
 
 	// define tx&rx_pilot and estimate h
@@ -127,8 +122,6 @@ void main()
 	}
 
 }
-
-
 
 //void main()
 //{
