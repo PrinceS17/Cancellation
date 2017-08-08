@@ -9,6 +9,8 @@
 #include <boost/math/special_functions/round.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+#include <Eigen/Dense>
+#include <vector>
 #include "wavetable.hpp"
 //#include <WinBase.h>
 #include <iostream>
@@ -17,17 +19,159 @@
 #include <csignal>
 #include <stdint.h>
 #include <cmath>
+using namespace Eigen;
 using namespace std;
 namespace po = boost::program_options;
 
 static bool stop_signal_called = false;
-vector<float> rbuff;
-vector<float> buff;
+vector<complex<float> > rbuff;
+vector<complex<float> > buff;
 
 void sig_int_handler(int){stop_signal_called = true;} 
 
+// dg_sic begin
+
+// cancellation function: called in main
+// 1, matrix A and A_inv: now calculated by function, in fact should store into a global object
+// 2, MatrixXf: now use float real type, MatrixXcf probably needed in the future 
+
+MatrixXf x2A(VectorXf& x, int l, int k)		// Note A(0,0) is x(0), so the 1st y is y(k)
+{
+	int n = l - 1;							// l is the length of [x0, x1, ..., xn]
+	int st = k;								// normally x.size() should not be less than n + 2k
+	MatrixXf A(n + 1, 2*k);					// should be check a third time!
+	for(int i = 0; i < n + 1; i++)
+	for(int j = 0; j < 2*k; j++)
+	{
+		A(i,j) = x(st - k + j + i);
+ 	}
+	return A;
+}
+
+MatrixXf x2A(VectorXf& x, int k)
+{
+	int lx = x.size();	
+	MatrixXf A = x2A(x, lx - 2*k + 1, k);			   // every points are used
+	return A;
+}
+
+Index dg_sync(VectorXf& preamble, VectorXf& rbuff)   // return delay in rbuff
+{
+	int cor_length = rbuff.size() - preamble.size() + 1;
+	VectorXf Cor(cor_length);					   // make the preamble
+	for(int i = 0; i < cor_length; i++) 
+		Cor(i) = preamble.transpose()*rbuff.segment(i,preamble.size());
+	Index idx;								   // simply find the max number
+	Cor.maxCoeff(&idx);
+	return idx - 1;
+}
+
+VectorXf estimate(VectorXf& sbuff, VectorXf& rbuff, int estimator_length)  // 2, estimation: sbuff: -k, ..., n+k-1; rbuff: 0,...,n (now estimate with A calculating repeatly! )
+{
+	// definition
+	int k = estimator_length/2;
+	if(sbuff.size() != rbuff.size() + 2*k - 1) 
+	{	
+		cout<<"\n error: length of pilot and rx signal don't match!"<<endl;
+		exit(0);
+	}
+
+	// generate A
+	MatrixXf A = x2A(sbuff, k);		
+	VectorXf h;
+	MatrixXf A2 = A.transpose()*A;					   // this way may not be efficient but work, need improving
+	
+	if(!A2.determinant())
+	{
+		cout<<"\n error: A'A is not invertiable!"<<endl;
+		exit(0);
+	}
+	h = A2.inverse()*A.transpose()*rbuff;			   // since A's psuedo inverse is (A'A)^-1 * A', it's A_inv*y
+	return h;
+
+}
+
+VectorXf dg_cancel(VectorXf& sbuff, VectorXf& rbuff, VectorXf& h, int estimator_length)  //3, cancellation
+{
+	// definition
+	int k = estimator_length/2;
+
+	// process for buff here
+
+	if(sbuff.size() != rbuff.size() + 2*k - 1) 
+	{	
+		cout<<"error: length of pilot and rx signal don't match!"<<endl;
+		exit(0);
+	}
+
+	// generate A1
+	MatrixXf A1 = x2A(sbuff, k);
+	return A1*h;
+
+}
+
+VectorXf dg_sic(
+	VectorXf &x, 
+	VectorXf &y,							       // initial signal got from UHD: here haven't defined complex number
+	VectorXf &preamble,					       // should have complete definition later
+	int estimator_length,
+	int preamble_length,
+	int pilot_length,
+	int signal_length,						   // the length of TX which made signal_length + delay <= RX's length, may be redefine
+	int samp_rate
+	)
+{
+	// print basic information before cancellation
+	cout<<endl<<"-----------------start cancellation------------------------------"<<endl;
+	cout<<"-- sampling rate: "<<samp_rate<<endl;
+	cout<<"-- signal_length: "<<signal_length<<endl;
+	cout<<"-- estimator_length: "<<estimator_length<<endl;
+	cout<<"-- preamble_length: "<<preamble_length<<endl;
+	cout<<"-- pilot_length: "<<pilot_length<<endl<<endl;
+	
+
+	int k = estimator_length/2;
+	Index delay = dg_sync(preamble, y);				// error here: Index type? or calculate?
+	cout<<"delay = "<<delay<<endl;
+
+	// define tx&rx_pilot and estimate h
+	// error here: Segmentation fault (core dumped)
+
+	VectorXf tx_pilot = x.segment(preamble_length - k - 1, pilot_length + 2*k - 1);
+	VectorXf rx_pilot = y.segment(delay + preamble_length, pilot_length);
+	VectorXf h = estimate(tx_pilot, rx_pilot, estimator_length);
+	cout<<"h = \n"<<h.transpose()<<endl;
+
+
+	// obtain new sequence of TX and RX
+	VectorXf tx_data = x.segment(preamble_length + pilot_length - k, signal_length - pilot_length - preamble_length + k);
+	VectorXf rx_data = y.segment(delay + preamble_length + pilot_length, signal_length - pilot_length - preamble_length - k + 1);
+	VectorXf y_clean;
+	y_clean = dg_cancel(tx_data, rx_data, h, estimator_length);
+
+	cout<<"x's norm: "<<tx_data.norm()<<endl;
+	cout<<"y's norm: "<<rx_data.norm()<<endl;	
+	cout<<"y_clean's norm: "<<h.norm()<<endl;
+
+	// write to file and some other work
+	ofstream outfile;
+	string name[3] = {"tx_file","rx_file","y_clean_file"};
+	VectorXf * ptr[3] = {&x, &y, &y_clean};									 // may not work
+	for (int i = 0; i < 3; i++)
+	{
+		outfile.open(name[i].c_str(), ios::out | ios::binary);				 // for Matlab visualization
+		outfile.write((const char*)ptr[i], signal_length*sizeof(float));     // try I/Q channel by one first
+		outfile.close();
+	}
+
+}
+
+
+
+// tranceiver begin
+
 void transmitter(
-    std::vector <complex<float> > buff,
+    //std::vector <complex<float> > &buff,	// no need, transceiver can also generate buff inside the function
     wave_table_class wave_table,
     uhd::tx_streamer::sptr tx0,
     uhd::tx_metadata_t md,
@@ -208,7 +352,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	rx_rate = rate;
 	tx_rate = rate;
 	ampl = 0.7;
-	double total_num_samps = 5e4;    // control the total number of samples
+	double total_num_samps = 0;    // control the total number of samples
 	double total_time = 20;
 
 	uhd::set_thread_priority();
@@ -275,8 +419,8 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	uhd::stream_args_t stream_args(cpu,wire);
         int num_channels = stream_args.channels.size();
 	uhd::tx_streamer::sptr tx0 = tx_usrp->get_tx_stream(stream_args);
-    int	spb = tx0->get_max_num_samps()*10;       // why *10?
-//int spb = 1000;
+   	int spb = tx0->get_max_num_samps()*10;       // why *10?
+	//int spb = 15000;
 	rbuff.assign(spb,0);
 	buff.assign(spb,0);
 	cout<<boost::format("spb = %f\n")%spb;
@@ -328,7 +472,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
     // use thread_group to send and receive data at the same time
 	string txfile = "tx_out";
     boost::thread_group transmit_thread;
-    transmit_thread.create_thread(boost::bind(&transmitter, buff, wave_table, tx0, md,txfile, step, index, num_channels));		// bind: return tranmitter(), no argument needed
+    transmit_thread.create_thread(boost::bind(&transmitter, wave_table, tx0, md,txfile, step, index, num_channels));		// bind: return tranmitter(), no argument needed
 
 
 // receive begin
@@ -341,18 +485,29 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	else throw std::runtime_error("Unknown type " + type);
 
 	// use the global variables to do the cancellation
-	int preamble_length = rate/freq;			// for sine wave: a period
+	int preamble_length = rate/wave_freq;			// for sine wave: a period
 	int estimator_length = 8;
 	int pilot_length = 400;
-	int signal_length = spb;
+	int signal_length = 1e4;
 	VectorXf preamble(preamble_length);
 	for(int n = 0; n < preamble_length; n ++)
-		preamble(n) = wave_table(index += step);		  // preamble sequence
+		preamble(n) = wave_table(index += step).real();		  // preamble sequence
 	
-	VectorXf y_clean = dg_sic(buff, rbuff, preamble, estimator_length, preamble_length, pilot_length, signal_length, rate);
+	
+	// seems a little difficult to convert from vector<complex> to VectorXf
+	// using Map(rbuff.data(), rbuff.size()) is wrong if rbuff is complex
+
+	VectorXf x(spb), y(spb);
+	for(int i = 0; i < buff.size(); i ++)
+	{
+		x(i) = buff[i].real();
+		y(i) = rbuff[i].real();
+
+	}
 
 	//finished
 	stop_signal_called = true;
+	VectorXf y_clean = dg_sic(x, y, preamble, estimator_length, preamble_length, pilot_length, signal_length, rate);
 	std::cout << std::endl << "Done!" << std::endl << std::endl;
 	return EXIT_SUCCESS;
 
