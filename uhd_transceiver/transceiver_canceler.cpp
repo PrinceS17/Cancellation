@@ -10,6 +10,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include <Eigen/Dense>
+#include <Eigen/SVD>
 #include <vector>
 #include "wavetable.hpp"
 //#include <WinBase.h>
@@ -77,16 +78,18 @@ VectorXf estimate(VectorXf& sbuff, VectorXf& rbuff, int estimator_length)  // 2,
 	}
 
 	// generate A
-	MatrixXf A = x2A(sbuff, k);		
-	VectorXf h;
-	MatrixXf A2 = A.transpose()*A;					   // this way may not be efficient but work, need improving
+	MatrixXf A = x2A(sbuff, k);	
+	BDCSVD<MatrixXf> svd(A, ComputeThinU|ComputeThinV);		  // use BDC SVD which is for large matrix
+	VectorXf h = svd.solve(rbuff);
 	
+	/* MatrixXf A2 = A.transpose()*A;					   // this way may not work for big estimator length
 	if(!A2.determinant())
 	{
-		cout<<"\n error: A'A is not invertiable!"<<endl;
+		cout<<"\n error: A'A is not invertible!"<<endl;
 		exit(0);
 	}
-	h = A2.inverse()*A.transpose()*rbuff;			   // since A's psuedo inverse is (A'A)^-1 * A', it's A_inv*y
+	h = A2.inverse()*A.transpose()*rbuff;			   // since A's psuedo inverse is (A'A)^-1 * A', it's A_inv*y*/
+	
 	return h;
 
 }
@@ -100,13 +103,13 @@ VectorXf dg_cancel(VectorXf& sbuff, VectorXf& rbuff, VectorXf& h, int estimator_
 
 	if(sbuff.size() != rbuff.size() + 2*k - 1) 
 	{	
-		cout<<"error: length of pilot and rx signal don't match!"<<endl;
+		cout<<"\n error: length of pilot and rx signal don't match!"<<endl;
 		exit(0);
 	}
 
 	// generate A1
 	MatrixXf A1 = x2A(sbuff, k);
-	return A1*h;
+	return rbuff - A1*h;
 
 }
 
@@ -136,31 +139,39 @@ VectorXf dg_sic(
 
 	// define tx&rx_pilot and estimate h
 	// error here: Segmentation fault (core dumped)
-
-	VectorXf tx_pilot = x.segment(preamble_length - k - 1, pilot_length + 2*k - 1);
+	
+	if(preamble_length + pilot_length + k - 2 >= x.size() | delay + preamble_length + pilot_length - 1 >= y.size())
+{
+	cout<<"\n error: the last index of requested pilot is beyond given signal!"<<endl;
+	exit(0);
+}
+	VectorXf tx_pilot = x.segment(preamble_length - k, pilot_length + 2*k - 1);
 	VectorXf rx_pilot = y.segment(delay + preamble_length, pilot_length);
 	VectorXf h = estimate(tx_pilot, rx_pilot, estimator_length);
 	cout<<"h = \n"<<h.transpose()<<endl;
 
 
 	// obtain new sequence of TX and RX
-	VectorXf tx_data = x.segment(preamble_length + pilot_length - k, signal_length - pilot_length - preamble_length + k);
-	VectorXf rx_data = y.segment(delay + preamble_length + pilot_length, signal_length - pilot_length - preamble_length - k + 1);
+	int L = signal_length -delay + k -1;		// possible largest length of data for sine wave
+	VectorXf tx_data = x.segment(preamble_length + pilot_length - k, L - pilot_length - preamble_length + k);
+	VectorXf rx_data = y.segment(delay + preamble_length + pilot_length, L - pilot_length - preamble_length - k + 1);
 	VectorXf y_clean;
 	y_clean = dg_cancel(tx_data, rx_data, h, estimator_length);
 
-	cout<<"x's norm: "<<tx_data.norm()<<endl;
-	cout<<"y's norm: "<<rx_data.norm()<<endl;	
-	cout<<"y_clean's norm: "<<h.norm()<<endl;
+	cout<<"x's norm: "<<x.norm()<<endl;
+	cout<<"y's norm: "<<y.norm()<<endl;	
+	cout<<"y_clean's norm: "<<y_clean.norm()<<endl;
 
 	// write to file and some other work
 	ofstream outfile;
 	string name[3] = {"tx_file","rx_file","y_clean_file"};
-	VectorXf * ptr[3] = {&x, &y, &y_clean};									 // may not work
+	float * ptr[3] = {x.data(), y.data(), y_clean.data()};									 // may not work
 	for (int i = 0; i < 3; i++)
 	{
 		outfile.open(name[i].c_str(), ios::out | ios::binary);				 // for Matlab visualization
-		outfile.write((const char*)ptr[i], signal_length*sizeof(float));     // try I/Q channel by one first
+		if(i < 2)
+			outfile.write((const char*)ptr[i], signal_length*sizeof(float));     // try I/Q channel by one first
+		else outfile.write((const char*)ptr[i], rx_data.size()*sizeof(float));       // y_clean is shorter than x, y
 		outfile.close();
 	}
 
@@ -486,7 +497,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 
 	// use the global variables to do the cancellation
 	int preamble_length = rate/wave_freq;			// for sine wave: a period
-	int estimator_length = 8;
+	int estimator_length = 20;
 	int pilot_length = 400;
 	int signal_length = 1e4;
 	VectorXf preamble(preamble_length);
@@ -497,8 +508,8 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	// seems a little difficult to convert from vector<complex> to VectorXf
 	// using Map(rbuff.data(), rbuff.size()) is wrong if rbuff is complex
 
-	VectorXf x(spb), y(spb);
-	for(int i = 0; i < buff.size(); i ++)
+	VectorXf x(signal_length), y(signal_length);
+	for(int i = 0; i < signal_length; i ++)
 	{
 		x(i) = buff[i].real();
 		y(i) = rbuff[i].real();
