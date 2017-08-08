@@ -1,11 +1,17 @@
-#include <iostream>
-#include <string>
-#include <complex>
-#include <fstream>
-#include <vector>
 #include <Eigen/Dense>
+#include <Eigen/SVD>
+#include <vector>
+#include "wavetable.hpp"
+#include <iostream>
+#include <fstream>
+#include <complex>
+#include <stdint.h>
+#include <cmath>
 using namespace Eigen;
 using namespace std;
+
+
+// dg_sic begin
 
 // cancellation function: called in main
 // 1, matrix A and A_inv: now calculated by function, in fact should store into a global object
@@ -31,15 +37,15 @@ MatrixXf x2A(VectorXf& x, int k)
 	return A;
 }
 
-int dg_sync(VectorXf& preamble, VectorXf& rbuff)   // return delay in rbuff
+Index dg_sync(VectorXf& preamble, VectorXf& rbuff)   // return delay in rbuff
 {
 	int cor_length = rbuff.size() - preamble.size() + 1;
 	VectorXf Cor(cor_length);					   // make the preamble
-	for(int i = 0; i < cor_length; i++)
-		Cor(i) = preamble.transpose()*rbuff;
-	Index *index;								   // simply find the max number
-	Cor.maxCoeff(index);
-	return *index - 1;
+	for(int i = 0; i < cor_length; i++) 
+		Cor(i) = preamble.transpose()*rbuff.segment(i,preamble.size());
+	Index idx;								   // simply find the max number
+	Cor.maxCoeff(&idx);
+	return idx - 1;
 }
 
 VectorXf estimate(VectorXf& sbuff, VectorXf& rbuff, int estimator_length)  // 2, estimation: sbuff: -k, ..., n+k-1; rbuff: 0,...,n (now estimate with A calculating repeatly! )
@@ -53,15 +59,18 @@ VectorXf estimate(VectorXf& sbuff, VectorXf& rbuff, int estimator_length)  // 2,
 	}
 
 	// generate A
-	MatrixXf A = x2A(sbuff, k);
-	VectorXf h;
-	MatrixXf A2 = A.transpose()*A;					   // this way may not be efficient but work, need improving
+	MatrixXf A = x2A(sbuff, k);	
+	BDCSVD<MatrixXf> svd(A, ComputeThinU|ComputeThinV);		  // use BDC SVD which is for large matrix
+	VectorXf h = svd.solve(rbuff);
+	
+	/* MatrixXf A2 = A.transpose()*A;					   // this way may not work for big estimator length
 	if(!A2.determinant())
 	{
-		cout<<"\n error: A'A is not invertiable!"<<endl;
+		cout<<"\n error: A'A is not invertible!"<<endl;
 		exit(0);
 	}
-	h = A2.inverse()*A.transpose()*rbuff;			   // since A's psuedo inverse is (A'A)^-1 * A', it's A_inv*y
+	h = A2.inverse()*A.transpose()*rbuff;			   // since A's psuedo inverse is (A'A)^-1 * A', it's A_inv*y*/
+	
 	return h;
 
 }
@@ -75,20 +84,20 @@ VectorXf dg_cancel(VectorXf& sbuff, VectorXf& rbuff, VectorXf& h, int estimator_
 
 	if(sbuff.size() != rbuff.size() + 2*k - 1) 
 	{	
-		cout<<"error: length of pilot and rx signal don't match!"<<endl;
+		cout<<"\n error: length of pilot and rx signal don't match!"<<endl;
 		exit(0);
 	}
 
 	// generate A1
 	MatrixXf A1 = x2A(sbuff, k);
-	return A1*h;
+	return rbuff - A1*h;
 
 }
 
-void dg_sic(
-	VectorXf x, 
-	VectorXf y,							       // initial signal got from UHD: here haven't defined complex number
-	VectorXf preamble,					       // should have complete definition later
+VectorXf dg_sic(
+	VectorXf &x, 
+	VectorXf &y,							       // initial signal got from UHD: here haven't defined complex number
+	VectorXf &preamble,					       // should have complete definition later
 	int estimator_length,
 	int preamble_length,
 	int pilot_length,
@@ -96,47 +105,57 @@ void dg_sic(
 	int samp_rate
 	)
 {
+	// print basic information before cancellation
+	cout<<endl<<"-----------------start cancellation------------------------------"<<endl;
+	cout<<"-- sampling rate: "<<samp_rate<<endl;
+	cout<<"-- signal_length: "<<signal_length<<endl;
+	cout<<"-- estimator_length: "<<estimator_length<<endl;
+	cout<<"-- preamble_length: "<<preamble_length<<endl;
+	cout<<"-- pilot_length: "<<pilot_length<<endl<<endl;
+	
+
 	int k = estimator_length/2;
-	int delay = dg_sync(preamble, y);
+	Index delay = dg_sync(preamble, y);				// error here: Index type? or calculate?
+	cout<<"-- delay = "<<delay<<endl;
 
 	// define tx&rx_pilot and estimate h
-	VectorXf tx_pilot = VectorXf::block(preamble_length - k - 1, 0, pilot_length + 2*k - 1, 0);
-	VectorXf rx_pilot = VectorXf::block(delay + preamble_length, 0, pilot_length, 0);
+	// error here: Segmentation fault (core dumped)
+	
+	if(preamble_length + pilot_length + k - 2 >= x.size() | delay + preamble_length + pilot_length - 1 >= y.size())
+{
+	cout<<"\n error: the last index of requested pilot is beyond given signal!"<<endl;
+	exit(0);
+}
+	VectorXf tx_pilot = x.segment(preamble_length - k, pilot_length + 2*k - 1);
+	VectorXf rx_pilot = y.segment(delay + preamble_length, pilot_length);
 	VectorXf h = estimate(tx_pilot, rx_pilot, estimator_length);
+	//cout<<"h = \n"<<h.transpose()<<endl;
+
 
 	// obtain new sequence of TX and RX
-	VectorXf tx_data = VectorXf::block(preamble_length + pilot_length - k, 0, signal_length - pilot_length - preamble_length + k, 0);
-	VectorXf rx_data = VectorXf::block(delay + preamble_length + pilot_length, 0, signal_length - pilot_length - preamble_length - k + 1, 0);
+	int L = signal_length -delay + k -1;		// possible largest length of data for sine wave
+	VectorXf tx_data = x.segment(preamble_length + pilot_length - k, L - pilot_length - preamble_length + k);
+	VectorXf rx_data = y.segment(delay + preamble_length + pilot_length, L - pilot_length - preamble_length - k + 1);
 	VectorXf y_clean;
 	y_clean = dg_cancel(tx_data, rx_data, h, estimator_length);
+
+	cout<<"-- x's norm: "<<x.norm()<<endl;
+	cout<<"-- y's norm: "<<y.norm()<<endl;	
+	cout<<"-- y_clean's norm: "<<y_clean.norm()<<endl;
 
 	// write to file and some other work
 	ofstream outfile;
 	string name[3] = {"tx_file","rx_file","y_clean_file"};
-	VectorXf * ptr[3] = {&x, &y, &y_clean};									 // may not work
+	float * ptr[3] = {x.data(), y.data(), y_clean.data()};									 // may not work
 	for (int i = 0; i < 3; i++)
 	{
 		outfile.open(name[i].c_str(), ios::out | ios::binary);				 // for Matlab visualization
-		outfile.write((const char*)ptr[i], signal_length*sizeof(float));     // try I/Q channel by one first
+		if(i < 2)
+			outfile.write((const char*)ptr[i], signal_length*sizeof(float));     // try I/Q channel by one first
+		else outfile.write((const char*)ptr[i], rx_data.size()*sizeof(float));       // y_clean is shorter than x, y
 		outfile.close();
 	}
 
 }
 
-//void main()
-//{
-//	// only for test
-//	VectorXf x(10),y(7);
-//	x<<1, 2, 3, 4, 5, 6, 7, 8, 9, 10;
-//	y<<-3, 8, -1, 0, 1, 2, 3;
-//	cout<<"x: \n"<<x.transpose()<<endl;
-//	cout<<"y: \n"<<y.transpose()<<endl;
-//	int k = 2;
-//	VectorXf h = estimate(x, y, 2*k);
-//	cout<<"h : \n"<<h<<endl;
-//	//MatrixXf m1 = x2A(x, x.size()-2*k, k);
-//	//cout<<"x to A: \n"<<m1<<endl;
-//
-//
-//
-//}
+
