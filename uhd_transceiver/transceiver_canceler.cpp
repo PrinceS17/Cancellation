@@ -135,7 +135,7 @@ VectorXf dg_sic(
 
 	int k = estimator_length/2;
 	Index delay = dg_sync(preamble, y);				// error here: Index type? or calculate?
-	cout<<"delay = "<<delay<<endl;
+	cout<<"-- delay = "<<delay<<endl;
 
 	// define tx&rx_pilot and estimate h
 	// error here: Segmentation fault (core dumped)
@@ -148,7 +148,7 @@ VectorXf dg_sic(
 	VectorXf tx_pilot = x.segment(preamble_length - k, pilot_length + 2*k - 1);
 	VectorXf rx_pilot = y.segment(delay + preamble_length, pilot_length);
 	VectorXf h = estimate(tx_pilot, rx_pilot, estimator_length);
-	cout<<"h = \n"<<h.transpose()<<endl;
+	//cout<<"h = \n"<<h.transpose()<<endl;
 
 
 	// obtain new sequence of TX and RX
@@ -158,9 +158,9 @@ VectorXf dg_sic(
 	VectorXf y_clean;
 	y_clean = dg_cancel(tx_data, rx_data, h, estimator_length);
 
-	cout<<"x's norm: "<<x.norm()<<endl;
-	cout<<"y's norm: "<<y.norm()<<endl;	
-	cout<<"y_clean's norm: "<<y_clean.norm()<<endl;
+	cout<<"-- x's norm: "<<x.norm()<<endl;
+	cout<<"-- y's norm: "<<y.norm()<<endl;	
+	cout<<"-- y_clean's norm: "<<y_clean.norm()<<endl;
 
 	// write to file and some other work
 	ofstream outfile;
