@@ -56,15 +56,52 @@ MatrixXf x2A(VectorXf& x, int k)
 	return A;
 }
 
-Index dg_sync(VectorXf& preamble, VectorXf& rbuff)   // return delay in rbuff
+class greater1
+{
+	VectorXf v;
+	public:
+		greater1(VectorXf v0): v(v0) {};
+	bool operator() (int a, int b) const
+	{
+		return v(a) > v(b);
+	}
+};
+
+
+VectorXf peaks(VectorXf& v, int num)	// return the biggest peaks idx; num: number of peaks
+{
+	
+	VectorXf p(v.size());
+	int total_num = 0;
+	for(int i = 1; i < v.size() - 1; i++)
+	{
+		if(v[i] > v[i - 1] & v[i] < v[i + 1])
+		{
+			p[total_num ++] = v[i];
+		}
+	}	
+	VectorXf peaks = p.segment(0,total_num);
+	VectorXf idx = VectorXf::LinSpaced(total_num,0,total_num - 1);
+	greater1 grt(peaks);
+	sort(idx.data(),idx.data() + total_num,grt);
+
+	if(num > total_num)
+		cout<<"-- error: requested peaks is more than actual peaks!"<<endl;
+	return idx.segment(0,num);
+
+}
+
+int dg_sync(VectorXf& preamble, VectorXf& rbuff)   // return delay in rbuff
 {
 	int cor_length = rbuff.size() - preamble.size() + 1;
 	VectorXf Cor(cor_length);					   // make the preamble
 	for(int i = 0; i < cor_length; i++) 
 		Cor(i) = preamble.transpose()*rbuff.segment(i,preamble.size());
-	Index idx;								   // simply find the max number
-	Cor.maxCoeff(&idx);
-	return idx - 1;
+	/*Index idx;					        // simply find the max number
+	Cor.maxCoeff(&idx);*/
+	VectorXf idxs = peaks(Cor, 10);				// find the biggest 10 peaks
+	sort(idxs.data(),idxs.data() + 10,less<int>());		// find the earliest idx among the 10
+	return idxs(0);
 }
 
 VectorXf estimate(VectorXf& sbuff, VectorXf& rbuff, int estimator_length)  // 2, estimation: sbuff: -k, ..., n+k-1; rbuff: 0,...,n (now estimate with A calculating repeatly! )
@@ -202,9 +239,8 @@ const string file,
 	while(not stop_signal_called)	
 	{
 		for(size_t n = 0; n < buff.size(); n ++)
-		{	buff[n] = wave_table(index += step);		  // no problem 
-			//buff[n] = n%3;
-		}
+			buff[n] = wave_table(index += step);		  // no problem 
+		
 		num += tx0->send(&buff.front(),buff.size(),md);   // send tx data from buff
 		md.start_of_burst = false;
 		md.has_time_spec = false;
@@ -501,6 +537,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	int pilot_length = 400;
 	int signal_length = 1e4;
 	VectorXf preamble(preamble_length);
+	index = 0;
 	for(int n = 0; n < preamble_length; n ++)
 		preamble(n) = wave_table(index += step).real();		  // preamble sequence
 	
