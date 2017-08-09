@@ -6,7 +6,7 @@ close all
 rate = 2e6;
 freq = 100e3;
 signal_length = 1e4;
-estimator_length = 40;
+estimator_length = 10;
 estimator_start = 50;
 pilot_length = 500;
 t = (1:signal_length)/rate;
