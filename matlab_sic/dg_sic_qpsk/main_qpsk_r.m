@@ -1,5 +1,8 @@
+close all
+clear all
+
 %% definition
-samp_rate = 4e6;
+samp_rate = 3e6;
 estimator_length = 60;
 pilot_length = 400;
 preamble_length = 64;
@@ -21,10 +24,11 @@ x = qpsk_generation(x,0.5,4,samp_per_sym);
 
 %% write tx data & read received data from USRP
 % write tx data into file
-fid = fopen('qpsk_tx','wb');
-xw = reshape([real(x);imag(x)],1,length(x)*2);
-fwrite(fid, xw,'float');
-fclose(fid);
+% addpath(genpath('/home/flexicon/Downloads/GNURadio/uhd/host/examples/qpsk_transceiver/build'));
+% fid = fopen('qpsk_tx','wb');
+% xw = reshape([real(x);imag(x)],1,length(x)*2);
+% fwrite(fid, xw,'float');
+% fclose(fid);
 
 % % 1, generate received signal for simulation
 % phi = pi/7;
@@ -34,7 +38,7 @@ fclose(fid);
 % y = awgn(y,SNR,'measured');                      % add noise
 
 % 2, use received data from USRP
-fid = fopen('qpsk_output','rb');
+fid = fopen('qpsk_rx_file','rb');
 a = fread(fid, [2, inf], 'float');               
 % tx_beg = 2.407e5;
 tx_beg = 1;
