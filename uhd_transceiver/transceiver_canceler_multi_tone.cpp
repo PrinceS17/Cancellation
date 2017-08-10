@@ -121,14 +121,17 @@ VectorXf estimate(VectorXf& sbuff, VectorXf& rbuff, int estimator_length)  // 2,
 	BDCSVD<MatrixXf> svd(A, ComputeThinU|ComputeThinV);		  // use BDC SVD which is for large matrix
 	VectorXf h = svd.solve(rbuff);
 	
-	/* MatrixXf A2 = A.transpose()*A;					   // this way may not work for big estimator length
-	if(!A2.determinant())
-	{
-		cout<<"\n error: A'A is not invertible!"<<endl;
-		exit(0);
-	}
-	h = A2.inverse()*A.transpose()*rbuff;			   // since A's psuedo inverse is (A'A)^-1 * A', it's A_inv*y*/
+	// write estimated pilot into file	
+	ofstream out;
+	out.open("estimated_pilot_mt",ios::out | ios::binary);
+	VectorXf yp = A*h;
+	out.write((const char*)yp.data(),yp.size()*sizeof(float));
+	out.close();
 	
+	out.open("rx_pilot_mt",ios::out | ios::binary);
+	out.write((const char*)rbuff.data(),rbuff.size()*sizeof(float));
+	out.close();
+
 	return h;
 
 }
@@ -238,10 +241,9 @@ const string file,
 	{
 		for(size_t n = 0; n < buff.size(); n ++)
 		{	
-			buff[n] = (float)0.2*wave_table(index[0]) + (float)0.3*wave_table(index[1])
-					+ (float)0.3*wave_table(index[2]) + (float)0.2*wave_table(index[3]);
+			buff[n] = (float)0.25*wave_table(index[0]) + (float)0.25*wave_table(index[1])
+					+ (float)0.25*wave_table(index[2]) + (float)0.25*wave_table(index[3]);
 		for(int i = 0; i < 4; i ++)	index[i] += step[i];
-	if(n < 4 ) cout<<n<<": "<<buff[n]<<endl;
 		}
 			
 		num += tx0->send(&buff.front(),buff.size(),md);   // send tx data from buff
@@ -368,7 +370,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 		file = file +"_" + boost::lexical_cast<string>(rate/1e6) + "M";
 	double wave_freq[4] = {100e3, 200e3, 300e3, 400e3};
 	freq = 915e6;
-	gain = 25;				// loop cable: 25; w/o cable: >35
+	gain = 25;				// loop cable: 25; w/o cable: 55
 	bw = 1e6;
 	rx_rate = rate;
 	tx_rate = rate;
