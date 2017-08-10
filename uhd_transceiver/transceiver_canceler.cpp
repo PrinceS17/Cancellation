@@ -118,14 +118,17 @@ VectorXf estimate(VectorXf& sbuff, VectorXf& rbuff, int estimator_length)  // 2,
 	MatrixXf A = x2A(sbuff, k);	
 	BDCSVD<MatrixXf> svd(A, ComputeThinU|ComputeThinV);		  // use BDC SVD which is for large matrix
 	VectorXf h = svd.solve(rbuff);
-	
-	/* MatrixXf A2 = A.transpose()*A;					   // this way may not work for big estimator length
-	if(!A2.determinant())
-	{
-		cout<<"\n error: A'A is not invertible!"<<endl;
-		exit(0);
-	}
-	h = A2.inverse()*A.transpose()*rbuff;			   // since A's psuedo inverse is (A'A)^-1 * A', it's A_inv*y*/
+
+	// write estimated pilot into file	
+	ofstream out;
+	out.open("estimated_pilot",ios::out | ios::binary);
+	VectorXf yp = A*h;
+	out.write((const char*)yp.data(),yp.size()*sizeof(float));
+	out.close();
+
+	out.open("rx_pilot",ios::out | ios::binary);
+	out.write((const char*)rbuff.data(),rbuff.size()*sizeof(float));
+	out.close();
 	
 	return h;
 
@@ -394,7 +397,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 		file = file +"_" + boost::lexical_cast<string>(rate/1e6) + "M";
 	wave_freq = 100e3;
 	freq = 915e6;
-	gain = 25;				// loop cable: 25; w/o cable: >35
+	gain = 25;				// loop cable: 25; w/o cable: 45
 	bw = 1e6;
 	rx_rate = rate;
 	tx_rate = rate;
