@@ -7,7 +7,7 @@ build_path = {'/home/flexicon/Downloads/GNURadio/uhd/host/examples/transceiver_c
 filename = {'tx_file','rx_file','y_clean_file','estimated_pilot','rx_pilot';
     'tx_file_mt','rx_file_mt','y_clean_file_mt','estimated_pilot_mt','rx_pilot_mt'};
 
-id = 2;           % switch: 1 for transceiver_canceler; 2 for multi_tone
+id = 1;           % switch: 1 for transceiver_canceler; 2 for multi_tone
 
 [~,w] = size(filename);
 a = cell(1,w);
@@ -25,22 +25,18 @@ y_clean = a{3};
 est_pilot = a{4};
 rx_pilot = a{5};
 
-% subplot(2,1,1);
-% plot(a1(1,:),':r'); hold on
-% plot(a2(1,:));
-% legend('y','y_{clean}');
-
 % plot pilot
 rate = 2e6;   % should consistent with the C++ code!!!
 f = 100e3;
 L = length(y);
 t = (1:L)/rate;
+
 if id == 1
     preamble_length = 20;
     pilot_length = 400;
 else
     preamble_length = 20;
-    pilot_length = 600;
+    pilot_length = 400;
 end
 
 figure
@@ -53,14 +49,14 @@ legend('TX pilot','RX pilot','estimated pilot');
 
 % plot data in time domain
 
-% figure
-% plot(t,x,':r',t,y,'b'); hold on;
-% plot(t(1:length(y_clean)),y_clean,'g'); % xlim([0 8e-5]); ylim([-0.1 0.1]);
-% % ylim([-0.25 0.25]); xlim([0 1e-4]);
-% title('TX, RX and canceled data');
-% xlabel('time /s'); ylabel('amplitude');
-% legend('TX data','RX data','canceled data');
-% 
-% 
-% 
+figure
+plot(t,x,':r',t,y,'b'); hold on;
+plot(t(1:length(y_clean)),y_clean,'g'); % xlim([0 8e-5]); ylim([-0.1 0.1]);
+% ylim([-0.25 0.25]); xlim([0 1e-4]);
+title('TX, RX and canceled data');
+xlabel('time /s'); ylabel('amplitude');
+legend('TX data','RX data','canceled data');
+
+
+
 plot_sic(x,y,y_clean,rate);
