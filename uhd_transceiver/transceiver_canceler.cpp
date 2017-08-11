@@ -6,9 +6,11 @@
 #include <boost/program_options.hpp>
 #include <boost/format.hpp>
 #include <boost/thread.hpp>
+#include <boost/signals2/mutex.hpp>
 #include <boost/math/special_functions/round.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+#include <time.h>
 #include <Eigen/Dense>
 #include <Eigen/SVD>
 #include <vector>
@@ -25,8 +27,10 @@ using namespace std;
 namespace po = boost::program_options;
 
 static bool stop_signal_called = false;
-vector<complex<float> > rbuff;
-vector<complex<float> > buff;
+int global_num[2] = {0,0};
+vector<complex<float> > global_rbuff;		 // now the global_buff size is spb, only enough for one buff
+vector<complex<float> > global_buff;	
+boost::mutex mtx;
 
 void sig_int_handler(int){stop_signal_called = true;} 
 
@@ -86,7 +90,10 @@ VectorXf peaks(VectorXf& v, int num)	// return the biggest peaks idx; num: numbe
 	sort(idx.data(),idx.data() + total_num,grt);
 
 	if(num > total_num)
+	{
 		cout<<"-- error: requested peaks is more than actual peaks!"<<endl;
+		cout<<"-- num = "<<num<<" , total_num = "<<total_num<<endl;
+	}
 	return idx.segment(0,num);
 
 }
@@ -154,13 +161,13 @@ VectorXf dg_cancel(VectorXf& sbuff, VectorXf& rbuff, VectorXf& h, int estimator_
 }
 
 VectorXf dg_sic(
-	VectorXf &x, 
-	VectorXf &y,							       // initial signal got from UHD: here haven't defined complex number
-	VectorXf &preamble,					       // should have complete definition later
+	//VectorXf &x, 			// no need when using global variables
+	//VectorXf &y,			              // initial signal got from UHD: here haven't defined complex number
+	VectorXf &preamble,		              // should have complete definition later
 	int estimator_length,
 	int preamble_length,
 	int pilot_length,
-	int signal_length,						   // the length of TX which made signal_length + delay <= RX's length, may be redefine
+	int signal_length,			      // the length of TX which made signal_length + delay <= RX's length, may be redefine
 	int samp_rate
 	)
 {
@@ -172,14 +179,42 @@ VectorXf dg_sic(
 	cout<<"-- preamble_length: "<<preamble_length<<endl;
 	cout<<"-- pilot_length: "<<pilot_length<<endl<<endl;
 	
+	ofstream outfile[3];
+	string name[3] = {"tx_file","rx_file","y_clean_file"};
+	int num[3] = {0,0,0};
+	int can_num = 0;
 
+	for(int i = 0; i < 3; i++)
+		outfile[i].open(name[i].c_str(), ios::out | ios::binary);
+	
+	VectorXf x(signal_length), y(signal_length);
+
+	while(not stop_signal_called)
+	{
+	// read TX and RX from global buffs
+	mtx.lock();
+	bool ifinit = global_num[0]*global_num[1];
+	if(ifinit)
+	{
+	if(can_num%100 == 0)
+		cout<<"-- TX No. "<<global_num[0]<<" , RX No. "<<global_num[1]<<" , Cancel No. "<<can_num<<endl;
+	for(int i = 0; i < signal_length; i ++)
+	{
+		x(i) = global_buff[i].real();
+		y(i) = global_rbuff[i].real();
+
+	}
+	}
+	else { mtx.unlock(); continue;}
+	
+	if(ifinit) mtx.unlock();		
+	
 	int k = estimator_length/2;
-	Index delay = dg_sync(preamble, y);				// error here: Index type? or calculate?
-	cout<<"-- delay = "<<delay<<endl;
+	can_num ++;
+	int delay = dg_sync(preamble, y);				// error here: Index type? or calculate?
+	//cout<<"-- delay = "<<delay<<endl;
 
 	// define tx&rx_pilot and estimate h
-	// error here: Segmentation fault (core dumped)
-	
 	if(preamble_length + pilot_length + k - 2 >= x.size() | delay + preamble_length + pilot_length - 1 >= y.size())
 {
 	cout<<"\n error: the last index of requested pilot is beyond given signal!"<<endl;
@@ -198,22 +233,32 @@ VectorXf dg_sic(
 	VectorXf y_clean;
 	y_clean = dg_cancel(tx_data, rx_data, h, estimator_length);
 
-	cout<<"-- x's norm: "<<x.norm()<<endl;
-	cout<<"-- y's norm: "<<y.norm()<<endl;	
-	cout<<"-- y_clean's norm: "<<y_clean.norm()<<endl;
+	//cout<<"-- x's norm: "<<x.norm()<<endl;
+	//cout<<"-- y's norm: "<<y.norm()<<endl;	
+	//cout<<"-- y_clean's norm: "<<y_clean.norm()<<endl;
+
+	float * ptr[3] = {x.data(), y.data(), y_clean.data()};
+	int length[3] = {signal_length, signal_length, rx_data.size()};
 
 	// write to file and some other work
-	ofstream outfile;
-	string name[3] = {"tx_file","rx_file","y_clean_file"};
-	float * ptr[3] = {x.data(), y.data(), y_clean.data()};									 // may not work
+	
 	for (int i = 0; i < 3; i++)
 	{
-		outfile.open(name[i].c_str(), ios::out | ios::binary);				 // for Matlab visualization
-		if(i < 2)
-			outfile.write((const char*)ptr[i], signal_length*sizeof(float));     // try I/Q channel by one first
-		else outfile.write((const char*)ptr[i], rx_data.size()*sizeof(float));       // y_clean is shorter than x, y
-		outfile.close();
+		outfile[i].write((const char*)ptr[i], length[i]*sizeof(float));     // try I/Q channel by one first
+		num[i] += length[i];
+
+		if(num[i]*sizeof(float) > 80e6*sizeof(char)) 
+				{						
+					outfile[i].close();
+					outfile[i].open(name[i].c_str(),ios::binary | ios::out);
+					num[i] = 0;
+					cout<<"-- New "<<name[i]<<endl;
+				}
 	}
+
+	}
+	for(int i = 0; i < 3; i++)
+		outfile[i].close();
 
 }
 
@@ -223,6 +268,7 @@ VectorXf dg_sic(
 
 void transmitter(
     //std::vector <complex<float> > &buff,	// no need, transceiver can also generate buff inside the function
+    int spb,
     wave_table_class wave_table,
     uhd::tx_streamer::sptr tx0,
     uhd::tx_metadata_t md,
@@ -234,6 +280,7 @@ const string file,
 {
 
 	int num = 0;
+	vector <complex<float> > buff(spb);	// buffer only for sending to USRP	
 	
 	// write to file
 	ofstream tx_out;
@@ -241,10 +288,16 @@ const string file,
 	
 	while(not stop_signal_called)	
 	{
-		for(size_t n = 0; n < buff.size(); n ++)
+		for(int n = 0; n < buff.size(); n ++)
 			buff[n] = wave_table(index += step);		  // no problem 
-		
+
+		mtx.lock();
+		global_buff = buff;
+		global_num[0] ++;
+		mtx.unlock();
+
 		num += tx0->send(&buff.front(),buff.size(),md);   // send tx data from buff
+
 		md.start_of_burst = false;
 		md.has_time_spec = false;
 		
@@ -252,17 +305,14 @@ const string file,
 		if (tx_out.is_open())
 		{
             		tx_out.write((const char*)&buff.front(), buff.size()*sizeof(float)*2);
-			if(num*sizeof(float)*2 > 30e6*sizeof(char)) 
+			if(num*sizeof(float)*2 > 80e6*sizeof(char)) 
 				{						
 					tx_out.close();
 					tx_out.open(file.c_str(),ios::binary | ios::out);
 					num = 0;
-					cout<<"New tx_out file!"<<endl;
+					cout<<"-- New tx_out file!"<<endl;
 				}
 		}
-
-		// 2, store in global variable
-
 
 
 	}
@@ -294,7 +344,7 @@ template<typename samp_type> void recv_to_file(
 	uhd::stream_args_t stream_args(cpu,wire);
 	uhd::rx_streamer::sptr rx0 = usrp->get_rx_stream(stream_args);
 	uhd::rx_metadata_t md;
-	// vector<samp_type> rbuff(samps_per_buff);    
+	std::vector<samp_type> rbuff(samps_per_buff);    
 	std::ofstream outfile;
 	outfile.open(file.c_str(),ios::binary | ios::out);
 	//string output;
@@ -322,8 +372,13 @@ template<typename samp_type> void recv_to_file(
 
 	while(! stop_signal_called && (num_requested_samples!= num_total_samps || !num_requested_samples)){ //! 
 		boost::system_time now = boost::get_system_time();
+		
 		size_t num_rx_samps = rx0->recv(&rbuff.front(),rbuff.size(),md,0.1f);
-		//rx0->recv()
+
+		mtx.lock();
+		global_rbuff = rbuff;
+		global_num[1] ++;
+		mtx.unlock();
 
 			if (md.error_code == uhd::rx_metadata_t::ERROR_CODE_TIMEOUT) {
 				std::cout << boost::format("Timeout while streaming") << std::endl;
@@ -358,12 +413,12 @@ template<typename samp_type> void recv_to_file(
 			if (outfile.is_open())
 			{
             			outfile.write((const char*)&rbuff.front(), num_rx_samps*sizeof(samp_type));
-				if(num_total_samps*sizeof(samp_type) > 30e6*sizeof(char)) 
+				if(num_total_samps*sizeof(samp_type) > 80e6*sizeof(char)) 
 					{
 						outfile.close();
 						outfile.open(file.c_str(),ios::binary | ios::out);
 						num_total_samps = 0;
-cout<<"New output file!"<<endl;
+cout<<"-- New output file!"<<endl;
 					}
 			}
 					
@@ -471,8 +526,9 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	uhd::tx_streamer::sptr tx0 = tx_usrp->get_tx_stream(stream_args);
    	int spb = tx0->get_max_num_samps()*10;       // why *10?
 	//int spb = 15000;
-	rbuff.assign(spb,0);
-	buff.assign(spb,0);
+
+	global_rbuff.assign(spb,0);		// initialize the global variables
+	global_buff.assign(spb,0);
 	cout<<boost::format("spb = %f\n")%spb;
  	
 	//vector<complex<float> > buff(spb);
@@ -521,20 +577,10 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	
     // use thread_group to send and receive data at the same time
 	string txfile = "tx_out";
-    boost::thread_group transmit_thread;
-    transmit_thread.create_thread(boost::bind(&transmitter, wave_table, tx0, md,txfile, step, index, num_channels));		// bind: return tranmitter(), no argument needed
+    boost::thread_group threads;
+    threads.create_thread(boost::bind(&transmitter, spb, wave_table, tx0, md,txfile, step, index, num_channels));		// bind: return tranmitter(), no argument needed
 
-
-// receive begin
-#define recv_to_file_args(format) \
-	(rx_usrp, format, wire, file, spb, total_num_samps, total_time)
-	//recv to file
-	if (type == "double") recv_to_file<std::complex<double> >recv_to_file_args("fc64");
-	else if (type == "float") recv_to_file<std::complex<float> >recv_to_file_args("fc32");
-	else if (type == "short") recv_to_file<std::complex<short> >recv_to_file_args("sc16");
-	else throw std::runtime_error("Unknown type " + type);
-
-	// use the global variables to do the cancellation
+// use the global variables to do the cancellation
 	int preamble_length = rate/wave_freq;			// for sine wave: a period
 	int estimator_length = 20;
 	int pilot_length = 400;
@@ -544,21 +590,36 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	for(int n = 0; n < preamble_length; n ++)
 		preamble(n) = wave_table(index += step).real();		  // preamble sequence
 	
+	threads.create_thread(boost::bind(&dg_sic, preamble, estimator_length, preamble_length, pilot_length, signal_length, rate));
+
+
+// receive begin
+#define recv_to_file_args(format) \
+	(rx_usrp, format, wire, file, spb, total_num_samps, total_time)
+	//recv to file: the 1st line required global_buff = buff to be complex<double> which is complicated for now
+
+	/*if (type == "double") recv_to_file<std::complex<double> >recv_to_file_args("fc64");
+	else if (type == "float") recv_to_file<std::complex<float> >recv_to_file_args("fc32");
+	else if (type == "short") recv_to_file<std::complex<short> >recv_to_file_args("sc16");
+	else throw std::runtime_error("Unknown type " + type);*/
+
+	// because now recv is not a thread but in the main, so it has to be the end
+	recv_to_file<std::complex<float> >recv_to_file_args("fc32");	
+	
 	
 	// seems a little difficult to convert from vector<complex> to VectorXf
 	// using Map(rbuff.data(), rbuff.size()) is wrong if rbuff is complex
 
-	VectorXf x(signal_length), y(signal_length);
+	/*VectorXf x(signal_length), y(signal_length);
 	for(int i = 0; i < signal_length; i ++)
 	{
 		x(i) = buff[i].real();
 		y(i) = rbuff[i].real();
 
-	}
+	}*/ // only for cancellation offline
 
 	//finished
-	stop_signal_called = true;
-	VectorXf y_clean = dg_sic(x, y, preamble, estimator_length, preamble_length, pilot_length, signal_length, rate);
+	stop_signal_called = true;	
 	std::cout << std::endl << "Done!" << std::endl << std::endl;
 	return EXIT_SUCCESS;
 
