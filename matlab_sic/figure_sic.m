@@ -23,7 +23,7 @@ legend('TX','RX');
 t = (start:start + n)/rate;
 figure
 plot(t,x(start:start + n),'r',t,y(st_rcv:st_rcv + n),'b',t,(A0*h)','--g');
-xlim([start, start + Tnum*N_T]/rate); ylim([-ymax, ymax]);
+% xlim([start, start + Tnum*N_T]/rate); ylim([-ymax, ymax]);
 title('TX & RX pilot and estimated pilot');
 xlabel('time /s'); ylabel('amplitude');
 legend('TX pilot','RX pilot','estimated pilot');
@@ -32,7 +32,7 @@ legend('TX pilot','RX pilot','estimated pilot');
 t1 = (start + n:start + n + N)/rate;        % N is the cancelled data length 
 figure 
 plot(t1,x(start + n:start + n + N),'r',t1,y(st_rcv + n:st_rcv + n + N),'b',t1,(A*h)','--g');
-xlim([start + n, start + n + Tnum*N_T]/rate); ylim([-ymax, ymax]);
+% xlim([start + n, start + n + Tnum*N_T]/rate); ylim([-ymax, ymax]);
 title('TX, RX and estimated data');
 xlabel('time /s'); ylabel('amplitude');
 legend('TX data','RX data','estimated data');
