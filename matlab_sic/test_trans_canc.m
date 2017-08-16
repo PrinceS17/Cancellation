@@ -3,11 +3,15 @@ close all
 clear all
 addpath(genpath('/home/flexicon/Documents/Cancellation/Cancellation'));
 build_path = {'/home/flexicon/Downloads/GNURadio/uhd/host/examples/transceiver_canceler/build';
-    '/home/flexicon/Downloads/GNURadio/uhd/host/examples/transceiver_canceler_multi_tone/build'};
+    '/home/flexicon/Downloads/GNURadio/uhd/host/examples/transceiver_canceler_multi_tone/build';
+    '/home/flexicon/Downloads/GNURadio/uhd/host/examples/qpsk_tranceler/build'
+    };
 filename = {'tx_file','rx_file','y_clean_file','estimated_pilot','rx_pilot';
-    'tx_file_mt','rx_file_mt','y_clean_file_mt','estimated_pilot_mt','rx_pilot_mt'};
+    'tx_file_mt','rx_file_mt','y_clean_file_mt','estimated_pilot_mt','rx_pilot_mt';
+    'tx_file','rx_file','y_clean_file','estimated_pilot','rx_pilot'
+    };
 
-id = 1;           % switch: 1 for transceiver_canceler; 2 for multi_tone
+id = 3;           % switch: 1 for transceiver_canceler; 2 for multi_tone; 3 for qpsk tranceler
 
 [~,w] = size(filename);
 a = cell(1,w);
@@ -34,9 +38,12 @@ t = (1:L)/rate;
 if id == 1
     preamble_length = 20;
     pilot_length = 400;
-else
+elseif id == 2
     preamble_length = 20;
     pilot_length = 400;
+elseif id == 3
+    preamble_length = 128;
+    pilot_length = 640;
 end
 
 figure
@@ -59,4 +66,4 @@ legend('TX data','RX data','canceled data');
 
 
 
-plot_sic(x,y,y_clean,rate);
+% plot_sic(x,y,y_clean,rate);
