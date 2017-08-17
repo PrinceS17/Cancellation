@@ -1,4 +1,4 @@
-function fmax = plot_sic(x,y,y_clean,rate)
+function h = plot_sic(x,y,y_clean,rate)
 
 % Fourier analysis
 fx = abs(fft(x))/length(x)*2;
@@ -15,12 +15,15 @@ fsy = rate*(1:length(y))/length(y) - rate/2;
 fsy_clean = rate*(1:length(y_clean))/length(y_clean) - rate/2;
 
 % plot frequency domain
-figure
-plot(fsx,fftshift(Px),':r');hold on
-plot(fsy,fftshift(Py),'b');xlabel('frequency /Hz');hold on
-plot(fsy_clean,fftshift(Py_clean),'-g');
+figure    % comment only when using test_trans_canc_rt
+h1 = plot(fsx,fftshift(Px),':r');hold on
+h2 = plot(fsy,fftshift(Py),'b');xlabel('frequency /Hz');hold on
+h3 = plot(fsy_clean,fftshift(Py_clean),'-g');
 title('Spectrum of TX, RX and cancelled signal');
+
+ylim([-120 0]);
 ylabel('dB');
 legend('TX','RX','RX_{cancelled}');
+h = {h1,h2,h3};
 
 end

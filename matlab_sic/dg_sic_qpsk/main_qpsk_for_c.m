@@ -12,19 +12,24 @@ for i = 1:2
     a{i} = fread(fid,[2 inf],'float');
     fclose(fid);
 end
-    
-tx = a{1}(1,:);      % it is real number and do the cancellation only for real
+   
+%  1, it is real number and do the cancellation only for real
+tx = a{1}(1,:);     
 rx = a{2}(1,:);
 
-% figure
-% plot(1:length(tx),tx,':r');
-% hold on
-% plot(1:length(rx),rx,'b');
+% 2, use the complex number
+tx = a{1}(1,:) + 1i*a{1}(2,:);     
+rx = a{2}(1,:) + 1i*a{2}(2,:);
+
+figure
+plot(1:length(tx),real(tx),':r');
+hold on
+plot(1:length(rx),real(rx),'b');
 
 %% detect the correct buffer manually
-buff_length = 1.5e4;        % total length of the window, may not all the signal
-st1 = 735842;
-st2 = 735842;
+buff_length = 2e4;        % total length of the window, may not all the signal
+st1 = 797162;
+st2 = 797162;
 tx_buff = tx(st1:st1 + buff_length - 1);
 rx_buff = rx(st2:st2 + buff_length - 1);
 
@@ -34,7 +39,7 @@ sps = 8;
 N_T = sps;
 signal_length = 1e4;
 preamble_length = 128;
-estimator_length = 80;
+estimator_length = 120;
 pilot_length = 640;
 preamble = tx_buff(1:preamble_length);
 pilot = tx_buff(preamble_length + 1:preamble_length + pilot_length);
