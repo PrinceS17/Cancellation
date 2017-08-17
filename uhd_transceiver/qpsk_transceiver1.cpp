@@ -247,7 +247,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 		file = file +"_" + boost::lexical_cast<string>(rate/1e6) + "M";
 	wave_freq = 100e3;
 	freq = 915e6;
-	gain = 25;
+	gain = 55;				// with loop cable: 25; w/o cable: 
 	bw = 1e6;
 	rx_rate = rate;
 	tx_rate = rate;
@@ -326,15 +326,15 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 
 	//set the TX bits for sending
 	VectorXcf preamble(preamble_sym_length);		   		// assign 0,1,0,1... to preamble
-	preamble.real() = VectorXf::Zero(preamble_sym_length);
-	preamble.imag() = VectorXf::Zero(preamble_sym_length);
+	preamble.real() = VectorXf::LinSpaced(preamble_sym_length,-1,-1);
+	preamble.imag() = VectorXf::LinSpaced(preamble_sym_length,-1,-1);
 	
 	for(int i = 0; i < preamble_sym_length/2; i ++)
 		preamble[2*i] = complex<float>(1,1);
 
 	VectorXcf sig(pilot_sym_length + data_sym_length);
 	for(int i = 0; i< pilot_sym_length + data_sym_length; i ++)
-		sig(i) = (double)rand()/RAND_MAX > 0.5? 1.0:0.0;
+		sig(i) = (double)rand()/RAND_MAX > 0.5? 1.0:-1.0;
 	sig.imag() = sig.real();
 	VectorXcf pilot = sig.segment(0,pilot_sym_length);
 	VectorXcf x_bit = sig.segment(pilot_sym_length,data_sym_length);
@@ -346,7 +346,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 
 
 	// form the wave
-	VectorXcf tx = wave_generation(x0,beta,sps,span);
+	VectorXcf tx = wave_generation(x0,beta,sps,span);			// complex * (real) rcos_filter = complex??
 
 
 	// set transmit streamer
