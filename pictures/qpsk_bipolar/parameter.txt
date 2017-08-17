@@ -1,0 +1,11 @@
+buff_length = 2e4;        % total length of the window, may not all the signal
+st1 = 1001562;
+st2 = 1001562;
+
+rate = 2e6;
+sps = 8;
+N_T = sps;
+signal_length = 1e4;
+preamble_length = 128;
+estimator_length = 120;
+pilot_length = 640;
