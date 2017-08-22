@@ -15,7 +15,7 @@ fsy = rate*(1:length(y))/length(y) - rate/2;
 fsy_clean = rate*(1:length(y_clean))/length(y_clean) - rate/2;
 
 % plot frequency domain
-figure    % comment only when using test_trans_canc_rt
+% figure    % comment only when using test_trans_canc_rt
 h1 = plot(fsx,fftshift(Px),':r');hold on
 h2 = plot(fsy,fftshift(Py),'b');xlabel('frequency /Hz');hold on
 h3 = plot(fsy_clean,fftshift(Py_clean),'-g');
