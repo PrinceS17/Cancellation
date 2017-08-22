@@ -26,11 +26,17 @@ using namespace Eigen;
 using namespace std;
 namespace po = boost::program_options;
 
+// real time cancellation for single sine wave
+
+
 static bool stop_signal_called = false;
-int global_num[2] = {0,0};
-vector<complex<float> > global_rbuff;		 // now the global_buff size is spb, only enough for one buff
-vector<complex<float> > global_buff;	
-boost::mutex mtx;
+int global_num[2] = {0,0};			 // num of buffer in global_rx, tx
+vector<complex<float> > global_rx;		 // global_rx, tx has many buffers, like 1000
+vector<complex<float> > global_tx;	
+int gsize;
+// int tx_pos = 0;					 // position: index of latest new entry of global_tx
+// int rx_pos = 0;					 // like above
+boost::mutex mtx;					 // mtx for reading global variables
 
 void sig_int_handler(int){stop_signal_called = true;} 
 
@@ -101,13 +107,21 @@ VectorXf peaks(VectorXf& v, int num)	// return the biggest peaks idx; num: numbe
 int dg_sync(VectorXf& preamble, VectorXf& rbuff)   // return delay in rbuff
 {
 	int cor_length = rbuff.size() - preamble.size() + 1;
+	if(cor_length < 0)
+	{
+		cout<<"-- error: cor length is negative!"<<endl;
+		exit(0);
+	}
 	VectorXf Cor(cor_length);					   // make the preamble
+	
+	
 	for(int i = 0; i < cor_length; i++) 
 		Cor(i) = preamble.transpose()*rbuff.segment(i,preamble.size());
 	/*Index idx;					        // simply find the max number
 	Cor.maxCoeff(&idx);*/
-	VectorXf idxs = peaks(Cor, 10);				// find the biggest 10 peaks
-	sort(idxs.data(),idxs.data() + 10,less<int>());		// find the earliest idx among the 10
+	int peak_num = 5;
+	VectorXf idxs = peaks(Cor, peak_num);				// find the biggest 10 peaks
+	sort(idxs.data(),idxs.data() + peak_num,less<int>());		// find the earliest idx among the 10
 	return idxs(0);
 }
 
@@ -163,6 +177,8 @@ VectorXf dg_cancel(VectorXf& sbuff, VectorXf& rbuff, VectorXf& h, int estimator_
 VectorXf dg_sic(
 	//VectorXf &x, 			// no need when using global variables
 	//VectorXf &y,			              // initial signal got from UHD: here haven't defined complex number
+	int spb,	
+	VectorXf &preamble_vf,
 	VectorXf &preamble,		              // should have complete definition later
 	int estimator_length,
 	int preamble_length,
@@ -183,83 +199,97 @@ VectorXf dg_sic(
 	string name[3] = {"tx_file","rx_file","y_clean_file"};
 	int num[3] = {0,0,0};
 	int can_num = 0;
+	int delay_const = -1;
 
 	for(int i = 0; i < 3; i++)
 		outfile[i].open(name[i].c_str(), ios::out | ios::binary);
 	
 	VectorXf x(signal_length), y(signal_length);
+	VectorXf rx1;
+	bool if_synced = 0;	
 
 	while(not stop_signal_called)
 	{
-	// read TX and RX from global buffs
-	mtx.lock();
-	bool ifinit = global_num[0]*global_num[1];
-	if(ifinit)
-	{
-	if(can_num%100 == 0)
-		cout<<"-- TX No. "<<global_num[0]<<" , RX No. "<<global_num[1]<<" , Cancel No. "<<can_num<<endl;
-	for(int i = 0; i < signal_length; i ++)
-	{
-		x(i) = global_buff[i].real();
-		y(i) = global_rbuff[i].real();
-
-	}
-	}
-	else { mtx.unlock(); continue;}
 	
-	if(ifinit) mtx.unlock();		
+
+		mtx.lock();	// begin reading global buffer
+		int tx_num = global_num[0];
+		int rx_num = global_num[1];
+		if(!if_synced && rx_num > 5)		// for sync: suppose 5 buffer is the biggest delay
+		{
+			cout<<"-- synced! "<<endl;
+			rx1 = VectorXf::Zero(global_num[1]*spb);
+			for(int i = 0; i < rx1.size(); i ++)
+				rx1[i] = global_rx[i % gsize].real();
+			if_synced = 1;
+		}
+		else if(!if_synced) { mtx.unlock(); continue;}			// before synchronization
+		else ;
+
+		if(delay_const > 0) 						// begin cancellation after 1st sync
+		{
+			int can_pos = can_num*signal_length;
+				
+			for(int i = 0; i < signal_length; i ++)
+			{
+				x(i) = global_tx[(can_pos + i) % gsize].real();
+				y(i) = global_rx[(can_pos + i + delay_const) % gsize].real();	// detail of y_clean's length should be notice
+			}
+			can_num ++;							// record the number of cancellation
+		}
+		mtx.unlock();	// end reading global buffer
+
+				
+		if(delay_const < 0)						// if rx1 read but not synchronized
+		{
+			delay_const = dg_sync(preamble_vf, rx1);		// synchronize for TX and RX			
+			cout<<"-- TX, RX delay = "<<delay_const<<endl;	
+			continue;
+ 		}
+		if(can_num%100 == 0)
+			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num<<" , Cancel No. "<<can_num<<endl;
 	
-	int k = estimator_length/2;
-	can_num ++;
-	int delay = dg_sync(preamble, y);				// error here: Index type? or calculate?
-	//cout<<"-- delay = "<<delay<<endl;
-
-	// define tx&rx_pilot and estimate h
-	if(preamble_length + pilot_length + k - 2 >= x.size() | delay + preamble_length + pilot_length - 1 >= y.size())
-{
-	cout<<"\n error: the last index of requested pilot is beyond given signal!"<<endl;
-	exit(0);
-}
-	VectorXf tx_pilot = x.segment(preamble_length - k, pilot_length + 2*k - 1);
-	VectorXf rx_pilot = y.segment(delay + preamble_length, pilot_length);
-	VectorXf h = estimate(tx_pilot, rx_pilot, estimator_length);
-	//cout<<"h = \n"<<h.transpose()<<endl;
-
-
-	// obtain new sequence of TX and RX
-	int L = signal_length -delay + k -1;		// possible largest length of data for sine wave
-	VectorXf tx_data = x.segment(preamble_length + pilot_length - k, L - pilot_length - preamble_length + k);
-	VectorXf rx_data = y.segment(delay + preamble_length + pilot_length, L - pilot_length - preamble_length - k + 1);
-	VectorXf y_clean;
-	y_clean = dg_cancel(tx_data, rx_data, h, estimator_length);
-
-	//cout<<"-- x's norm: "<<x.norm()<<endl;
-	//cout<<"-- y's norm: "<<y.norm()<<endl;	
-	//cout<<"-- y_clean's norm: "<<y_clean.norm()<<endl;
-
-	float * ptr[3] = {x.data(), y.data(), y_clean.data()};
-	int length[3] = {signal_length, signal_length, rx_data.size()};
-
-	// write to file and some other work
+		int k = estimator_length/2;
+		int delay = dg_sync(preamble, y);				// error here: Index type? or calculate?
+		cout<<"-- delay = "<<delay<<endl;
 	
-	for (int i = 0; i < 3; i++)
-	{
-		outfile[i].write((const char*)ptr[i], length[i]*sizeof(float));     // try I/Q channel by one first
-		num[i] += length[i];
+		// define tx&rx_pilot and estimate h
+		if(preamble_length + pilot_length + k - 2 >= x.size() | delay + preamble_length + pilot_length - 1 >= y.size())
+		{	
+			cout<<"\n error: the last index of requested pilot is beyond given signal!"<<endl;
+			exit(0);
+		}
+		VectorXf tx_pilot = x.segment(preamble_length - k, pilot_length + 2*k - 1);
+		VectorXf rx_pilot = y.segment(delay + preamble_length, pilot_length);
+		VectorXf h = estimate(tx_pilot, rx_pilot, estimator_length);
+		//cout<<"h = \n"<<h.transpose()<<endl;
 
-		if(num[i]*sizeof(float) > 80e6*sizeof(char)) 
-				{						
-					outfile[i].close();
-					outfile[i].open(name[i].c_str(),ios::binary | ios::out);
-					num[i] = 0;
-					cout<<"-- New "<<name[i]<<endl;
-				}
-	}
+		// obtain new sequence of TX and RX
+		int L = signal_length -delay + k -1;		// possible largest length of data for sine wave
+		VectorXf tx_data = x.segment(preamble_length + pilot_length - k, L - pilot_length - preamble_length + k);
+		VectorXf rx_data = y.segment(delay + preamble_length + pilot_length, L - pilot_length - preamble_length - k + 1);
+		VectorXf y_clean = dg_cancel(tx_data, rx_data, h, estimator_length);
 
+		float * ptr[3] = {x.data(), y.data(), y_clean.data()};
+		int length[3] = {signal_length, signal_length, rx_data.size()};
+
+		// write to file and some other work
+		for (int i = 0; i < 3; i++)
+		{
+			outfile[i].write((const char*)ptr[i], length[i]*sizeof(float));     // try I/Q channel by one first
+			num[i] += length[i];
+
+			if(num[i]*sizeof(float) > 100e6*sizeof(char)) 
+			{					
+				outfile[i].close();
+				outfile[i].open(name[i].c_str(),ios::binary | ios::out);
+				num[i] = 0;
+				cout<<"-- New "<<name[i]<<endl;
+			}
+		}
 	}
 	for(int i = 0; i < 3; i++)
 		outfile[i].close();
-
 }
 
 
@@ -270,6 +300,7 @@ void transmitter(
     //std::vector <complex<float> > &buff,	// no need, transceiver can also generate buff inside the function
     int spb,
     wave_table_class wave_table,
+    vector<complex<float> > preamble_1,
     uhd::tx_streamer::sptr tx0,
     uhd::tx_metadata_t md,
 const string file,
@@ -280,44 +311,38 @@ const string file,
 {
 
 	int num = 0;
-	vector <complex<float> > buff(spb);	// buffer only for sending to USRP	
-	
-	// write to file
-	ofstream tx_out;
-	tx_out.open(file.c_str(),ios::out | ios::binary);
-	
+	vector <complex<float> > buff(spb), pre_buff;	// buff: only for sending data; pre: calculate beyond the loop
+	for(int n = 0; n < buff.size(); n ++)
+		pre_buff[n] = wave_table(index += step);		  // no problem 
+
+	// 1st preamble
+	bool if_preamble = 0;	
+
 	while(not stop_signal_called)	
 	{
-		for(int n = 0; n < buff.size(); n ++)
-			buff[n] = wave_table(index += step);		  // no problem 
+		if(!if_preamble)
+		{
+			buff = preamble_1;
+			if_preamble = 1;
+		}
+		else buff = pre_buff;
 
 		mtx.lock();
-		global_buff = buff;
+		int tx_pos = spb*global_num[0];
+		for(int i = 0; i < spb; i ++)
+			global_tx[(tx_pos + i) % gsize] = buff[i];
+		
 		global_num[0] ++;
+		//cout<<"-- tx num: "<<global_num[0]<<endl;	
 		mtx.unlock();
 
 		num += tx0->send(&buff.front(),buff.size(),md);   // send tx data from buff
-
+	
 		md.start_of_burst = false;
 		md.has_time_spec = false;
-		
-		// 1, output to file
-		if (tx_out.is_open())
-		{
-            		tx_out.write((const char*)&buff.front(), buff.size()*sizeof(float)*2);
-			if(num*sizeof(float)*2 > 80e6*sizeof(char)) 
-				{						
-					tx_out.close();
-					tx_out.open(file.c_str(),ios::binary | ios::out);
-					num = 0;
-					cout<<"-- New tx_out file!"<<endl;
-				}
-		}
-
 
 	}
-	tx_out.close();	
-
+	
 	// end sending
 	
 	md.end_of_burst = true;
@@ -345,10 +370,10 @@ template<typename samp_type> void recv_to_file(
 	uhd::rx_streamer::sptr rx0 = usrp->get_rx_stream(stream_args);
 	uhd::rx_metadata_t md;
 	std::vector<samp_type> rbuff(samps_per_buff);    
-	std::ofstream outfile;
-	outfile.open(file.c_str(),ios::binary | ios::out);
+	
 	//string output;
 	unsigned long long num_total_samps = 0;
+	int spb = samps_per_buff;
 
 	//set up rx streaming
 	uhd::stream_cmd_t stream_cmd((num_requested_samples == 0)?
@@ -374,10 +399,13 @@ template<typename samp_type> void recv_to_file(
 		boost::system_time now = boost::get_system_time();
 		
 		size_t num_rx_samps = rx0->recv(&rbuff.front(),rbuff.size(),md,0.1f);
-
+	
 		mtx.lock();
-		global_rbuff = rbuff;
+		int rx_pos = spb*global_num[1];
+		for(int i = 0; i < spb; i ++)
+			global_rx[(rx_pos + i) % gsize] = rbuff[i];
 		global_num[1] ++;
+		//cout<<"-- rx num: "<<global_num[1]<<endl;
 		mtx.unlock();
 
 			if (md.error_code == uhd::rx_metadata_t::ERROR_CODE_TIMEOUT) {
@@ -410,27 +438,13 @@ template<typename samp_type> void recv_to_file(
 				mapSizes[num_rx_samps] += 1;    //confused: what's the original value of mapSizes?
 			} 
 			num_total_samps += num_rx_samps;
-			if (outfile.is_open())
-			{
-            			outfile.write((const char*)&rbuff.front(), num_rx_samps*sizeof(samp_type));
-				if(num_total_samps*sizeof(samp_type) > 80e6*sizeof(char)) 
-					{
-						outfile.close();
-						outfile.open(file.c_str(),ios::binary | ios::out);
-						num_total_samps = 0;
-cout<<"-- New output file!"<<endl;
-					}
-			}
-					
-
 
 	}
 
-// end receiveing
-if(outfile.is_open())
-	outfile.close();
-uhd::stream_cmd_t rx_cmd(uhd::stream_cmd_t::STREAM_MODE_STOP_CONTINUOUS);
-rx0->issue_stream_cmd(rx_cmd);
+	// end receiveing
+
+	uhd::stream_cmd_t rx_cmd(uhd::stream_cmd_t::STREAM_MODE_STOP_CONTINUOUS);
+	rx0->issue_stream_cmd(rx_cmd);
 
 }
 
@@ -513,11 +527,13 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 
 	// precompute the waveform values
 	string wt = "SINE";
+	string pre_wt = "SINE";
 	const wave_table_class wave_table(wt,ampl);
+	const wave_table_class preamble_table(pre_wt,2*ampl);
 	const size_t step = boost::math::iround(wave_freq/tx_usrp->get_tx_rate() * wave_table_len);
 	size_t index = 0;
 
-
+	
 	// channel detect?
 
 	// set transmit streamer
@@ -526,11 +542,19 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	uhd::tx_streamer::sptr tx0 = tx_usrp->get_tx_stream(stream_args);
    	int spb = tx0->get_max_num_samps()*10;       // why *10?
 	//int spb = 15000;
-
-	global_rbuff.assign(spb,0);		// initialize the global variables
-	global_buff.assign(spb,0);
+	
+	int num_buff = 1000;				// test which is fine enough
+	global_rx.assign(num_buff*spb,0);		// initialize the global variables
+	global_tx.assign(num_buff*spb,0);
+	gsize = global_tx.size();
 	cout<<boost::format("spb = %f\n")%spb;
  	
+	// generate 1st preamble for TX, RX synchronization
+	vector <complex<float> > preamble_1(spb);	
+	for(int i = 0; i < spb; i ++)
+		preamble_1[i] = preamble_table(index += step);
+
+	
 	//vector<complex<float> > buff(spb);
 	//vector<complex<float>* > buffs(channel_nums.size(),&buff.front());
 
@@ -578,19 +602,27 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
     // use thread_group to send and receive data at the same time
 	string txfile = "tx_out";
     boost::thread_group threads;
-    threads.create_thread(boost::bind(&transmitter, spb, wave_table, tx0, md,txfile, step, index, num_channels));		// bind: return tranmitter(), no argument needed
+	
+    threads.create_thread(boost::bind(&transmitter, spb, wave_table, preamble_1, tx0, md,txfile, step, index, num_channels));		// bind: return tranmitter(), no argument needed
 
 // use the global variables to do the cancellation
 	int preamble_length = rate/wave_freq;			// for sine wave: a period
 	int estimator_length = 20;
 	int pilot_length = 400;
-	int signal_length = 1e4;
+	int signal_length = spb/2;				// control the buffer of a cancellation
+	
 	VectorXf preamble(preamble_length);
 	index = 0;
 	for(int n = 0; n < preamble_length; n ++)
 		preamble(n) = wave_table(index += step).real();		  // preamble sequence
+
+	VectorXf preamble_vf(spb);
+	for(int i = 0; i < spb; i ++)
+		preamble_vf[i] = preamble_1[i].real();
+cout<<"-- after assign..."<<endl;
+
 	
-	threads.create_thread(boost::bind(&dg_sic, preamble, estimator_length, preamble_length, pilot_length, signal_length, rate));
+	threads.create_thread(boost::bind(&dg_sic, spb, preamble_vf, preamble, estimator_length, preamble_length, pilot_length, signal_length, rate));
 
 
 // receive begin
@@ -604,6 +636,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	else throw std::runtime_error("Unknown type " + type);*/
 
 	// because now recv is not a thread but in the main, so it has to be the end
+		
 	recv_to_file<std::complex<float> >recv_to_file_args("fc32");	
 	
 	
