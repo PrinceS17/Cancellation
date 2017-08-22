@@ -512,7 +512,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	// use the global variables to do the cancellation
 	int preamble_length = rate/wave_freq[0];			// for sine wave: a period
 	int estimator_length = 60;
-	int pilot_length = 600;
+	int pilot_length = 400;
 	int signal_length = 1e4;
 	VectorXf preamble(preamble_length);
 	for(int i = 0; i < 4; i++)
