@@ -28,7 +28,8 @@ rx_pilot = a{5};
 % plot pilot
 rate = 2e6;   % should consistent with the C++ code!!!
 f = 100e3;
-L = 1e4;      % specify the length of a buff to visualize
+spb = 20440;
+L = spb;      % specify the length of a buff to visualize
 st = 1;       % starting point every time
 
 figure
