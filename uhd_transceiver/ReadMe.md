@@ -26,9 +26,7 @@ tranceler_multi_tone\_rt.cpp adds real time and signal synchronization parts and
 
 
 #### 3. QPSK signal
-qpsk_tranceler.cpp and qpsk_transceiver\_1.cpp are for QPSK signal.
+qpsk_tranceler.cpp, qpsk_transceiver\_1.cpp and rcos\_filter.cpp are for QPSK signal.
 qpsk\_tranceler.cpp fails to do the cancellation for QPSK signal because it has no synchronization now. 
-qpsk_transceiver_1.cpp can generate and transceive QPSK signal so that we can use them in Matlab and do the cancellation. It calls wave\_generation() and
-
-
-rcos_filter.cpp contains primary function about waveform generation of band-limited signal, such as rcos_filter() and wave_generation(). The former generates a raised cosine filter and the latter uses it to generate actual TX waveform like QPSK TX signal. main() generates QPSK TX signal so it can be easily integrated into transceiver and canceler code.
+qpsk_transceiver_1.cpp can generate and transceive QPSK signal so that we can use them in Matlab and do the cancellation. It calls wave\_generation() and rcos\_filter() (inside qpsk_transceiver_1.cpp itself but from rcos\_filter.cpp) to generate continuous QPSK waveform from complex bipolar code like 1 + 1i, -1 - 1i. It works fine with Matlab cancellation and can get about 30 dB cancellation.
+rcos\_filter.cpp contains primary function about waveform generation of band-limited signal, such as rcos_filter() and wave_generation(). The former generates a raised cosine filter and the latter uses it to generate actual TX waveform like QPSK TX signal. main() generates QPSK TX signal so it can be easily integrated into transceiver and canceler code.
