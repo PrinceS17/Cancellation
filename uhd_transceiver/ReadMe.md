@@ -1,9 +1,9 @@
 ### Introduction
-These are the C++ codes for UHD and are tested on USRP B205mini. There are two ways to classify them: based on their uses or signals they deal with. 
+* These are the C++ codes for UHD and are tested on USRP B205mini. There are two ways to classify them: based on their uses or signals they deal with. 
 
 ### Classification by use
 #### 1. Transceiver
-Transceiver can generate different waveforms, send and receive them with USRP and usually write into file. The first transceiver, transceiver0.cpp, is for sine wave and it comes from a uhd example, txrx_loop_back_to_file.cpp. Generally, transceiver is used to observe the original signal without processing. It can also provide proper TX and RX signals for Matlab code to do the cancellation, like what qpsk\_transceiver1.cpp does.
+* Transceiver can generate different waveforms, send and receive them with USRP and usually write into file. The first transceiver, transceiver0.cpp, is for sine wave and it comes from a uhd example, txrx_loop_back_to_file.cpp. Generally, transceiver is used to observe the original signal without processing. It can also provide proper TX and RX signals for Matlab code to do the cancellation, like what qpsk\_transceiver1.cpp does.
 
 #### 2. Tranceler
 Tranceler or transceiver\_canceler can not only transceive signal but also do the cancellation. There are trancelers for single sine wave, multi-tone sine wave and QPSK signal. And they can be divided into offline canceler and real time canceler (not true "real time" but can update cancellation result continuously). By far, canceler for single sine wave, offline canceler for multi-tone sine wave have been realized basically and tested with USRP.
