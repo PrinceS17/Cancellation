@@ -13,7 +13,7 @@ digital\_SIC.cpp, rcos\_filter.cpp are functions. wavetable.hpp is header file t
 
 ### Classification by signal
 #### 1. single sine wave
-* transceiver\_0.cpp, transceiver\_canceler.cpp and transceiver_canceler_rt\_sync.cpp are for single sine wave. 
+transceiver\_0.cpp, transceiver\_canceler.cpp and transceiver_canceler_rt\_sync.cpp are for single sine wave. 
 
 * transceiver\_0.cpp is the first UHD transceiver from UHD example. It sets the USRP, generates sine wave from waveform.hpp and uses buffer to send and receive signal. Receiver, recv_to_file(), is in the main thread while transmitter() is in another thread to make sure they work simultaneously. 
 
@@ -24,7 +24,7 @@ digital\_SIC.cpp, rcos\_filter.cpp are functions. wavetable.hpp is header file t
 Besides, digital\_SIC.cpp is the first version of cancellation part in any canceler. It is out of date now, however, because no other code calls it.
 
 #### 2. multi-tone sine wave
-* transceiver_canceler_multi\_tone.cpp and tranceler_multi_tone\_rt.cpp are for multi-tone sine wave.
+transceiver_canceler_multi\_tone.cpp and tranceler_multi_tone\_rt.cpp are for multi-tone sine wave.
 
 * transceiver_canceler_multi\_tone.cpp is the first version for multi-tone sine wave, which changes TX from above. It does offline cancellation in another thread for 4 tones now, 100 kHz to 400 kHz with a sampling rate of 2 MHz. It is tested. 
 
@@ -32,7 +32,7 @@ Besides, digital\_SIC.cpp is the first version of cancellation part in any cance
 
 
 #### 3. QPSK signal
-* qpsk_tranceler.cpp, qpsk_transceiver\_1.cpp and rcos\_filter.cpp are for QPSK signal.
+qpsk_tranceler.cpp, qpsk_transceiver\_1.cpp and rcos\_filter.cpp are for QPSK signal.
 
 * qpsk\_tranceler.cpp fails to do the cancellation for QPSK signal because it has no synchronization now. 
 
