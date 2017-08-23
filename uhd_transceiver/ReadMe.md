@@ -14,19 +14,28 @@ digital\_SIC.cpp, rcos\_filter.cpp are functions. wavetable.hpp is header file t
 ### Classification by signal
 #### 1. single sine wave
 transceiver\_0.cpp, transceiver\_canceler.cpp and transceiver_canceler_rt\_sync.cpp are for single sine wave. 
+
 transceiver\_0.cpp is the first UHD transceiver from UHD example. It sets the USRP, generates sine wave from waveform.hpp and uses buffer to send and receive signal. Receiver, recv_to_file(), is in the main thread while transmitter() is in another thread to make sure they work simultaneously. 
+
 transceiver\_canceler.cpp has an offline cancellation part in another thread, which does about 50 dB cancellation and doesn't interrupt transmitter or receiver. It writes TX, RX and clean signal into tx\_file, rx\_file and y_clean_file so we can visualize them in Matlab. And it also writes buffers to file in transmitter and receiver function.
+
 transceiver_canceler_rt\_sync.cpp has a real time cancellation part in another thread. Compared to tranceler above, it do the cancellation without any interruption because it doesn't write any file in transmitter or receiver. It also has a signal synchronization part (though may not work now). 
+
 Besides, digital\_SIC.cpp is the first version of cancellation part in any canceler. It is out of date now, however, because no other code calls it.
 
 #### 2. multi-tone sine wave
 transceiver_canceler_multi\_tone.cpp and tranceler_multi_tone\_rt.cpp are for multi-tone sine wave.
+
 transceiver_canceler_multi\_tone.cpp is the first version for multi-tone sine wave, which changes TX from above. It does offline cancellation in another thread for 4 tones now, 100 kHz to 400 kHz with a sampling rate of 2 MHz. It is tested. 
+
 tranceler_multi_tone\_rt.cpp adds real time and signal synchronization parts and the cancellation hasn't been tested yet. 
 
 
 #### 3. QPSK signal
 qpsk_tranceler.cpp, qpsk_transceiver\_1.cpp and rcos\_filter.cpp are for QPSK signal.
+
 qpsk\_tranceler.cpp fails to do the cancellation for QPSK signal because it has no synchronization now. 
+
 qpsk_transceiver_1.cpp can generate and transceive QPSK signal so that we can use them in Matlab and do the cancellation. It calls wave\_generation() and rcos\_filter() (inside qpsk_transceiver_1.cpp itself but from rcos\_filter.cpp) to generate continuous QPSK waveform from complex bipolar code like 1 + 1i, -1 - 1i. It works fine with Matlab cancellation and can get about 30 dB cancellation.
+
 rcos\_filter.cpp contains primary function about waveform generation of band-limited signal, such as rcos_filter() and wave_generation(). The former generates a raised cosine filter and the latter uses it to generate actual TX waveform like QPSK TX signal. main() generates QPSK TX signal so it can be easily integrated into transceiver and canceler code.
