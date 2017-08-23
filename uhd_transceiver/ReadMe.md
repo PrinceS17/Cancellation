@@ -10,6 +10,7 @@ Tranceler or transceiver\_canceler can not only transceive signal but also do th
 
 #### 3. Function and header file
 digital\_SIC.cpp, rcos\_filter.cpp are functions. wavetable.hpp is header file to generate different signals.
+sic\_db is used to calculate the cancellation result in dB and it contains a fft block from github.
 
 ### Classification by signal
 #### 1. single sine wave
