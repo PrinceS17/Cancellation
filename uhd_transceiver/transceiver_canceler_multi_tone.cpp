@@ -37,7 +37,36 @@ void sig_int_handler(int){stop_signal_called = true;}
 // 2, MatrixXf: now use float real type, MatrixXcf probably needed in the future 
 
 
+// nonlinear cancellation
+MatrixXf x2A(VectorXf & x, int l, int k, int dim)     //A(0,0) is x(0), 1st y is y(k)
+{
+	int n = l - 1;					// l: length of [x0,...,xn]
+	int st = k;					// start of y, x.size() should >= n + 2k, better =
+	//int dim = 4;					// dimension of nonlinearity
+	
+	MatrixXf A(n + 1, 2*k*dim);
+	for(int i = 0; i < n + 1; i ++)
+	for(int j = 0; j < 2*k; j ++)
+	for(int p = 0; p < dim; p ++)
+		A(i, p*2*k + j) = pow(x(st + k - 1 + i - j), p + 1);	
+	//	A(i, j*dim + p) = pow(x(st - k + j + i), p + 1);		// x^(p + 1)
+	//	A(i, p*2*k + j) = pow(x(st - k + j + i), p + 1);
+	return A;
+}
 
+MatrixXf x2A(VectorXf & x, int k, int dim)
+{
+	int lx = x.size();
+	return x2A(x, lx - 2*k + 1, k, dim);
+}
+
+MatrixXf x2A(VectorXf & x, int k)	        // default dim is 1
+{
+	return x2A(x, k, 3);
+}
+
+/*
+// linear cancellation
 MatrixXf x2A(VectorXf& x, int l, int k)		// Note A(0,0) is x(0), so the 1st y is y(k)
 {
 	int n = l - 1;							// l is the length of [x0, x1, ..., xn]
@@ -56,7 +85,7 @@ MatrixXf x2A(VectorXf& x, int k)
 	int lx = x.size();	
 	MatrixXf A = x2A(x, lx - 2*k + 1, k);			   // every points are used
 	return A;
-}
+}*/
 
 class greater1
 {
@@ -157,8 +186,8 @@ VectorXf dg_cancel(VectorXf& sbuff, VectorXf& rbuff, VectorXf& h, int estimator_
 
 VectorXf dg_sic(
 	VectorXf &x, 
-	VectorXf &y,							       // initial signal got from UHD: here haven't defined complex number
-	VectorXf &preamble,					       // should have complete definition later
+	VectorXf &y,							   // initial signal got from UHD: here haven't defined complex number
+	VectorXf &preamble,					           // should have complete definition later
 	int estimator_length,
 	int preamble_length,
 	int pilot_length,
@@ -370,7 +399,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 		file = file +"_" + boost::lexical_cast<string>(rate/1e6) + "M";
 	double wave_freq[4] = {100e3, 200e3, 300e3, 400e3};
 	freq = 915e6;
-	gain = 25;				// loop cable: 25; w/o cable: 55
+	gain = 55;				// loop cable: 25; w/o cable: 55
 	bw = 1e6;
 	rx_rate = rate;
 	tx_rate = rate;
@@ -512,7 +541,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	// use the global variables to do the cancellation
 	int preamble_length = rate/wave_freq[0];			// for sine wave: a period
 	int estimator_length = 60;
-	int pilot_length = 400;
+	int pilot_length = 600;
 	int signal_length = 1e4;
 	VectorXf preamble(preamble_length);
 	for(int i = 0; i < 4; i++)
