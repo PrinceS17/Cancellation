@@ -46,18 +46,20 @@ void sig_int_handler(int){stop_signal_called = true;}
 // 1, matrix A and A_inv: now calculated by function, in fact should store into a global object
 // 2, MatrixXf: now use float real type, MatrixXcf probably needed in the future 
 
-// nonlinear cancellation
+// nonlinear cancellation, linear by default
 MatrixXf x2A(VectorXf & x, int l, int k, int dim)     //A(0,0) is x(0), 1st y is y(k)
 {
-	int n = l - 1;				// l: length of [x0,...,xn]
+	int n = l - 1;					// l: length of [x0,...,xn]
 	int st = k;					// start of y, x.size() should >= n + 2k, better =
-	//int dim = 4;				// dimension of nonlinearity
+	//int dim = 4;					// dimension of nonlinearity
 	
 	MatrixXf A(n + 1, 2*k*dim);
 	for(int i = 0; i < n + 1; i ++)
 	for(int j = 0; j < 2*k; j ++)
 	for(int p = 0; p < dim; p ++)
-		A(i, j*dim + p) = pow(x(st - k + j + i),p + 1);		// x^(p + 1)
+	//	A(i, p*2*k + j) = pow(x(st + k - 1 + i - j), p + 1);	
+		A(i, j*dim + p) = pow(x(st - k + j + i), p + 1);		// x^(p + 1)
+	//	A(i, p*2*k + j) = pow(x(st - k + j + i), p + 1);
 	return A;
 }
 
@@ -69,8 +71,9 @@ MatrixXf x2A(VectorXf & x, int k, int dim)
 
 MatrixXf x2A(VectorXf & x, int k)	        // default dim is 1
 {
-	return x2A(x, k, 1);
+	return x2A(x, k, 3);
 }
+
 
 class greater1
 {
@@ -209,11 +212,10 @@ VectorXf dg_sic(
 
 	for(int i = 0; i < 3; i++)
 		outfile[i].open(name[i].c_str(), ios::out | ios::binary);
-	
 	VectorXf x(signal_length), y(signal_length);
 	VectorXf rx1;
 	bool if_synced = 0;	
-
+	
 	while(not stop_signal_called)
 	{
 	
@@ -221,6 +223,8 @@ VectorXf dg_sic(
 		mtx.lock();	// begin reading global buffer
 		int tx_num = global_num[0];
 		int rx_num = global_num[1];
+		//cout<<" rx_num"<<rx_num<<endl;
+
 		if(!if_synced && rx_num > 5)		// for sync: suppose 5 buffer is the biggest delay
 		{
 			cout<<"-- synced! "<<endl;
@@ -253,11 +257,11 @@ VectorXf dg_sic(
 			continue;
  		}
 		if(can_num%100 == 0)
-			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num<<" , Cancel No. "<<can_num<<endl;
+			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num<<" , Cancel No. "<<can_num*signal_length/spb<<endl;
 	
 		int k = estimator_length/2;
 		int delay = dg_sync(preamble, y);				// error here: Index type? or calculate?
-		cout<<"-- delay = "<<delay<<endl;
+		//cout<<"-- delay = "<<delay<<endl;
 	
 		// define tx&rx_pilot and estimate h
 		if(preamble_length + pilot_length + k - 2 >= x.size() | delay + preamble_length + pilot_length - 1 >= y.size())
@@ -317,9 +321,9 @@ const string file,
 {
 
 	int num = 0;
-	vector <complex<float> > buff(spb), pre_buff;	// buff: only for sending data; pre: calculate beyond the loop
+	vector <complex<float> > buff(spb), pre_buff(spb);	// buff: only for sending data; pre: calculate beyond the loop
 	for(int n = 0; n < buff.size(); n ++)
-		pre_buff[n] = wave_table(index += step);		  // no problem 
+		pre_buff[n] = wave_table(index += step);        // no problem 
 
 	// 1st preamble
 	bool if_preamble = 0;	
@@ -476,7 +480,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	bw = 1e6;
 	rx_rate = rate;
 	tx_rate = rate;
-	ampl = 0.7;
+	ampl = 0.3;
 	double total_num_samps = 0;    // control the total number of samples
 	double total_time = 20;
 
@@ -654,7 +658,6 @@ cout<<"-- after assign..."<<endl;
 	{
 		x(i) = buff[i].real();
 		y(i) = rbuff[i].real();
-
 	}*/ // only for cancellation offline
 
 	//finished
