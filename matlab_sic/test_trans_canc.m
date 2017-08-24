@@ -11,7 +11,7 @@ filename = {'tx_file','rx_file','y_clean_file','estimated_pilot','rx_pilot';
     'tx_file','rx_file','y_clean_file','estimated_pilot','rx_pilot'
     };
 
-id = 3;           % switch: 1 for transceiver_canceler; 2 for multi_tone; 3 for qpsk tranceler
+id = 1;           % switch: 1 for transceiver_canceler; 2 for multi_tone; 3 for qpsk tranceler
 
 [~,w] = size(filename);
 a = cell(1,w);
@@ -38,13 +38,22 @@ t = (1:L)/rate;
 if id == 1
     preamble_length = 20;
     pilot_length = 400;
+    fc = 100e3;
+    bw = 10;
 elseif id == 2
     preamble_length = 20;
     pilot_length = 400;
+    fc = 0;                 % not work
+    bw = 0;
 elseif id == 3
     preamble_length = 128;
     pilot_length = 640;
+    fc = 0;
+    bw = 10e3;              % should consistent with C++ code
 end
+
+ind = 1:length(y_clean);
+result = sic_db([y(ind);y_clean], rate, fc, bw, 2e3),
 
 figure
 id_pilot = preamble_length + 1:preamble_length + pilot_length; 
@@ -64,6 +73,4 @@ title('TX, RX and canceled data');
 xlabel('time /s'); ylabel('amplitude');
 legend('TX data','RX data','canceled data');
 
-
-
-% plot_sic(x,y,y_clean,rate);
+plot_sic(x,y,y_clean,rate);

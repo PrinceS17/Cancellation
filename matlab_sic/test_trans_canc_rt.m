@@ -10,7 +10,7 @@ filename = {'tx_file','rx_file','y_clean_file','estimated_pilot','rx_pilot';
     'tx_file','rx_file','y_clean_file','estimated_pilot','rx_pilot';
    };
 
-id = 3;           % switch: 1 for transceiver_canceler; 2 for multi_tone; 3 for multi_tone real time
+id = 1;           % switch: 1 for transceiver_canceler; 2 for multi_tone; 3 for multi_tone real time
 
 [~,w] = size(filename);
 a = cell(1,w);
