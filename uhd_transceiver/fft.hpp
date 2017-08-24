@@ -51,12 +51,16 @@ unsanitize_fft
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
+#include <cstddef>
+#include <Eigen/Dense>
+using namespace std;
+using namespace Eigen;
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif // ifndef M_PI
 
 // address of cell if base adderss not nullptr, nullptr otherwise
-#define fft_private_safe_addrof(ptr,i) ((ptr!=nullptr)?(&(ptr[i])):(nullptr))
+#define fft_private_safe_addrof(ptr,i) ((ptr!=NULL)?(&(ptr[i])):(NULL))
 
 // For a 8-sample input, the FFT's last three bins contain "negative" frequencies. (So, the last (size/2)-1 bins.) They are only meaningful for complex inputs.
 void fft_core(double* input_real, double* input_imag, uint64_t size, uint64_t gap, double* output_real, double* output_imag, bool forwards)
@@ -64,7 +68,7 @@ void fft_core(double* input_real, double* input_imag, uint64_t size, uint64_t ga
     if(size == 1)
     {
         output_real[0] = input_real[0];
-        if(input_imag != nullptr)
+        if(input_imag != NULL)
             output_imag[0] = input_imag[0];
         else
             output_imag[0] = 0;
@@ -159,38 +163,44 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 	int L = max(y.size(), y_clean.size());
 	int N_fft = pow(2, (int)log2(L) + 1);
 	MatrixXf signal(N_fft, 2);
-	// complete the  col vector by 0s for FFT, very stupid code
-	signal.col(1).segment(0, y.size()) = y ;
-	signal.col(1).segment(y.size(), N_fft - y.size()) = VectorXf::zero(N_fft - y.size()) ;
-	signal.col(2).segment(0, y_clean.size()) = y_clean ;
-	signal.col(2).segment(y_clean.size(), N_fft - y_clean.size()) = VectorXf::zero(N_fft - y.size()) ;
 	
-	float P_db[2];
-	int fl_id = ( (fc - rg/2) /rate + 0.5 )*N_fft;
+	// complete the  col vector by 0s for FFT, very stupid code
+	signal.col(0).segment(0, y.size()) = y ;
+	signal.col(0).segment(y.size(), N_fft - y.size()) = VectorXf::Zero(N_fft - y.size()) ;
+	signal.col(1).segment(0, y_clean.size()) = y_clean ;
+	signal.col(1).segment(y_clean.size(), N_fft - y_clean.size()) = VectorXf::Zero(N_fft - y.size()) ;
+
+	float* P_db = new float[2];
+	int fl_id = ( (fc - rg/2) /rate + 0.5 )*N_fft;	
 	int fr_id = ( (fc + rg/2) /rate + 0.5 )*N_fft;	
 	
 	for(int i = 0; i < 2; i ++)
 	{
 		VectorXf x = signal.col(i);
-		VectorXcf fx(N_fft);
-		fft(x.data(), NULL, N_fft, fx.real().data(), fx.imag().data());
+		VectorXcd fx(N_fft);
+
+		// is it ok to convert float into double? for x.data()
 		
-		VectorXf Px(N_fft), temp(N_fft);
-		Px.array() = 10*log10(fx.array().abs2() /100 * 1000);		// calculate power spectrum in dB
-		temp.segment(0, N_fft/2) = Px(N_fft/2, N_fft/2);		// fftshift
-		temp.segment(N_fft/2, N_fft/2) = Px(0, N_fft/2);
+		fft((double *)x.data(), NULL, N_fft, (double *)fx.real().data(), (double *)fx.imag().data());
+		VectorXd fxn = fx.array().abs() ;
+
+		VectorXd Px(N_fft), temp(N_fft);
+		Px.array() = 10*log10(fxn.array().square() /100 * 1000);		// calculate power spectrum in dB
+		temp.segment(0, N_fft/2) = Px.segment(N_fft/2, N_fft/2);		// fftshift
+		temp.segment(N_fft/2, N_fft/2) = Px.segment(0, N_fft/2);
 		Px = temp;
+
+		//cout<<"Px : "<<endl;
+		//cout<<endl<<Px.segment(5000,10)<<endl;
 
 		if(!i)
 		{
 			int peak_id;
-			Px.segment(fl_id, fr_id - fl_id + 1).max_coeff((index*)&peak_id);
+			Px.segment(fl_id, fr_id - fl_id + 1).maxCoeff(&peak_id);
 			int ofst = peak_id - rg/2 *N_fft /rate;
-			fc += ofst*rate/L;
-			fl_id = (int) ( (fc - bw/2) /rate + 0.5 )*N_fft;
-			fr_id = (int) ( (fc + bw/2) /rate + 0.5 )*N_fft;	
-	
-
+			int k = bw *L /2 /rate;
+			fr_id = fl_id + peak_id - 1 -k;
+			fl_id = fl_id + peak_id - 1 +k;
 		}
 
 		P_db[i] = Px.segment(fl_id, fr_id - fl_id + 1).mean(); 
