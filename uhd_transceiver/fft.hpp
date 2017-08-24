@@ -154,7 +154,7 @@ void unsanitize_fft(double* input_real, double* input_imag, uint64_t size)
     }
 }
 
-double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw) 	// fc: center frequency; bw: bandwidth; not tested
+double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw, double rg) 	// fc: center frequency; bw: bandwidth; not tested
 {
 	int L = max(y.size(), y_clean.size());
 	int N_fft = pow(2, (int)log2(L) + 1);
@@ -166,7 +166,9 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw)
 	signal.col(2).segment(y_clean.size(), N_fft - y_clean.size()) = VectorXf::zero(N_fft - y.size()) ;
 	
 	float P_db[2];
-
+	int fl_id = ( (fc - rg/2) /rate + 0.5 )*N_fft;
+	int fr_id = ( (fc + rg/2) /rate + 0.5 )*N_fft;	
+	
 	for(int i = 0; i < 2; i ++)
 	{
 		VectorXf x = signal.col(i);
@@ -179,8 +181,18 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw)
 		temp.segment(N_fft/2, N_fft/2) = Px(0, N_fft/2);
 		Px = temp;
 
-		int fl_id = ( (fc - bw/2) /rate + 0.5 )*N_fft;
-		int fr_id = ( (fc + bw/2) /rate + 0.5 )*N_fft;
+		if(!i)
+		{
+			int peak_id;
+			Px.segment(fl_id, fr_id - fl_id + 1).max_coeff((index*)&peak_id);
+			int ofst = peak_id - rg/2 *N_fft /rate;
+			fc += ofst*rate/L;
+			fl_id = (int) ( (fc - bw/2) /rate + 0.5 )*N_fft;
+			fr_id = (int) ( (fc + bw/2) /rate + 0.5 )*N_fft;	
+	
+
+		}
+
 		P_db[i] = Px.segment(fl_id, fr_id - fl_id + 1).mean(); 
 
 	} 
