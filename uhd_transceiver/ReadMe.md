@@ -8,10 +8,12 @@ Transceiver can generate different waveforms, send and receive them with USRP an
 #### 2. Tranceler
 Tranceler or transceiver\_canceler can not only transceive signal but also do the cancellation. There are trancelers for single sine wave, multi-tone sine wave and QPSK signal. And they can be divided into offline canceler and real time canceler (not true "real time" but can update cancellation result continuously). By far, canceler for single sine wave, offline canceler for multi-tone sine wave have been realized basically and tested with USRP.
 
+Besides, linear cancellation is tested reliable while all cancelers are updated to non linear cancellation since the latter can be linear by setting dim = 1 defaultly.
+
 #### 3. Function and header file
 digital\_SIC.cpp, rcos\_filter.cpp contain functions. wavetable.hpp is header file to generate different signals.
 sic\_db.cpp is used to calculate the cancellation result in dB through a fft block from github.
-nonlinear.cpp is used to generate matrix A with nonlinear components for nonlinear cancellation.
+nonlinear.cpp is used to generate matrix A with nonlinear components for nonlinear cancellation. It also contains a back up of x2A() for linear cancellation only before.
 
 ### Classification by signal
 #### 1. single sine wave
