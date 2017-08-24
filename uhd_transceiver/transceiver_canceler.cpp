@@ -15,6 +15,7 @@
 #include <Eigen/SVD>
 #include <vector>
 #include "wavetable.hpp"
+#include "fft.hpp"
 //#include <WinBase.h>
 #include <iostream>
 #include <fstream>
@@ -71,7 +72,7 @@ MatrixXf x2A(VectorXf & x, int k, int dim)
 
 MatrixXf x2A(VectorXf & x, int k)	        // default dim is 1
 {
-	return x2A(x, k, 3);
+	return x2A(x, k, 2);
 }
 
 
@@ -256,8 +257,6 @@ VectorXf dg_sic(
 			cout<<"-- TX, RX delay = "<<delay_const<<endl;	
 			continue;
  		}
-		if(can_num%100 == 0)
-			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num<<" , Cancel No. "<<can_num*signal_length/spb<<endl;
 	
 		int k = estimator_length/2;
 		int delay = dg_sync(preamble, y);				// error here: Index type? or calculate?
@@ -279,11 +278,23 @@ VectorXf dg_sic(
 		VectorXf tx_data = x.segment(preamble_length + pilot_length - k, L - pilot_length - preamble_length + k);
 		VectorXf rx_data = y.segment(delay + preamble_length + pilot_length, L - pilot_length - preamble_length - k + 1);
 		VectorXf y_clean = dg_cancel(tx_data, rx_data, h, estimator_length);
+		
+		// calculate the cancellation
+		//double result = -1;		
+		double result = sic_db(y, y_clean, samp_rate, 100e3, 2, 2e3);
 
+		// output the result
+		if(can_num%100 == 0)
+		{			
+			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num;
+			cout<<" , Cancel No. "<<can_num*signal_length/spb;
+			cout<<" , "<<setprecision(2)<<result<<" dB"<<endl;
+		}
+		// write to file and some other work
 		float * ptr[3] = {x.data(), y.data(), y_clean.data()};
 		int length[3] = {signal_length, signal_length, rx_data.size()};
 
-		// write to file and some other work
+		
 		for (int i = 0; i < 3; i++)
 		{
 			outfile[i].write((const char*)ptr[i], length[i]*sizeof(float));     // try I/Q channel by one first
@@ -629,7 +640,6 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	VectorXf preamble_vf(spb);
 	for(int i = 0; i < spb; i ++)
 		preamble_vf[i] = preamble_1[i].real();
-cout<<"-- after assign..."<<endl;
 
 	
 	threads.create_thread(boost::bind(&dg_sic, spb, preamble_vf, preamble, estimator_length, preamble_length, pilot_length, signal_length, rate));
