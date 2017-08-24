@@ -18,10 +18,10 @@ for i = 1:2
     
     if i == 1
         [~,peak_id] = max(Px(fl_id:fr_id));             % for searching max
-        ofst = peak_id - round((rg/2)*L/rate);
-        fc = fc + ofst*rate/L;
-        fl_id = round(((fc - bw/2)/rate + 0.5)*L);      % for calculate cancellation
-        fr_id = round(((fc + bw/2)/rate + 0.5)*L);
+        k = round(bw * L /2 /rate);
+        fr_id = fl_id + peak_id - 1 + k;
+        fl_id = fl_id + peak_id - 1 - k;
+       
     end
     
     P_db(i) = mean(Px(fl_id:fr_id));

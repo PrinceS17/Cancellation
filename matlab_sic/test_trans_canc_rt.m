@@ -38,7 +38,9 @@ st = 1;       % starting point every time
 
 figure
 h_old = cell(1,3);
-
+num = 0;
+res = 0;
+ifst = 0;
 while 1
     if st + L - 1 > min([length(x0),length(y0),length(y_clean0)])
         for k = 1:w
@@ -83,6 +85,20 @@ while 1
     % title('TX, RX and canceled data');
     % xlabel('time /s'); ylabel('amplitude');
     % legend('TX data','RX data','canceled data');
+    
+    
+    fc = 100e3;
+    bw = 2;
+    rg = 2e3;
+    result = sic_db([y;y_clean],rate,fc,bw,rg),    % not work here???
+    if result > 30
+        ifst = 1;
+    end
+    if ifst
+    res = res + result;
+    num = num + 1;
+    res/num,
+    end
     
     h = plot_sic(x,y,y_clean,rate);
     for i = 1:3
