@@ -282,7 +282,7 @@ VectorXf dg_sic(
 		// calculate the cancellation
 		//double result = -1;		
 		double ary[2];
-		double result = sic_db(y, y_clean, samp_rate, 100e3, 2, 6e3, ary);
+		double result = sic_db(y, y_clean, samp_rate, 100e3, 1e3, 6e3, ary);
 
 		// output the result
 		if(can_num%100 == 0)

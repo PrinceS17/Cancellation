@@ -176,8 +176,8 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 	int fr_id = ( (fc + rg/2) /rate + 0.5 )*N_fft;	
 
 	// cout some mediate results
-	/*cout<<"\n-- N fft = "<<N_fft<<endl;
-	cout<<"-- y norm = "<<y.norm()<<endl;
+	//cout<<"\n-- N fft = "<<N_fft<<endl;
+/*	cout<<"-- y norm = "<<y.norm()<<endl;
 	cout<<"-- y_clean norm = "<<y_clean.norm()<<endl;
 	cout<<"-- fl_id = "<<fl_id<<" 	 fr_id = "<<fr_id<<endl;
 */
@@ -212,8 +212,9 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 		cout<<"fx imag norm = "<<fx.imag().norm()<<endl;
 		cout<<"-- max(Px) = "<<Px.maxCoeff()<<endl;
 		cout<<"-- min(Px) = "<<Px.minCoeff()<<endl;
-		cout<<"-- fl_id = "<<fl_id<<" 	 fr_id = "<<fr_id<<endl;
 */
+		//cout<<"-- fl_id = "<<fl_id<<" 	 fr_id = "<<fr_id<<endl;
+
 
 		P_db[i] = Px.segment(fl_id, fr_id - fl_id + 1).mean(); 
 	} 
