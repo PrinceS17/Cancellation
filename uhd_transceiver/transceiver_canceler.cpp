@@ -72,7 +72,7 @@ MatrixXf x2A(VectorXf & x, int k, int dim)
 
 MatrixXf x2A(VectorXf & x, int k)	        // default dim is 1
 {
-	return x2A(x, k, 2);
+	return x2A(x, k, 1);
 }
 
 
@@ -281,15 +281,17 @@ VectorXf dg_sic(
 		
 		// calculate the cancellation
 		//double result = -1;		
-		double result = sic_db(y, y_clean, samp_rate, 100e3, 2, 2e3);
+		double ary[2];
+		double result = sic_db(y, y_clean, samp_rate, 100e3, 2, 6e3, ary);
 
 		// output the result
 		if(can_num%100 == 0)
 		{			
 			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num;
 			cout<<" , Cancel No. "<<can_num*signal_length/spb;
-			cout<<" , "<<setprecision(2)<<result<<" dB"<<endl;
+			cout<<" , "<<setprecision(2)<<result<<" dB, "<<ary[0]<<" -> "<<ary[1]<<" dB"<<endl;
 		}
+
 		// write to file and some other work
 		float * ptr[3] = {x.data(), y.data(), y_clean.data()};
 		int length[3] = {signal_length, signal_length, rx_data.size()};
@@ -368,7 +370,7 @@ const string file,
 	
 	md.end_of_burst = true;
 	tx0->send("",0,md);
-	cout<<endl<<"TX done!"<<endl<<endl;
+	cout<<endl<<"TX done!"<<endl;
 }
 
 template<typename samp_type> void recv_to_file(
@@ -487,7 +489,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 		file = file +"_" + boost::lexical_cast<string>(rate/1e6) + "M";
 	wave_freq = 100e3;
 	freq = 915e6;
-	gain = 25;				// loop cable: 25; w/o cable: 45
+	gain = 30;				// loop cable: 25; w/o cable: 45
 	bw = 1e6;
 	rx_rate = rate;
 	tx_rate = rate;
@@ -630,7 +632,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	int preamble_length = rate/wave_freq;			// for sine wave: a period
 	int estimator_length = 20;
 	int pilot_length = 400;
-	int signal_length = spb/2;				// control the buffer of a cancellation
+	int signal_length = spb;				// control the buffer of a cancellation
 	
 	VectorXf preamble(preamble_length);
 	index = 0;
@@ -672,7 +674,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 
 	//finished
 	stop_signal_called = true;	
-	std::cout << std::endl << "Done!" << std::endl << std::endl;
+	std::cout << std::endl << "Done!" << std::endl;
 	return EXIT_SUCCESS;
 
 }

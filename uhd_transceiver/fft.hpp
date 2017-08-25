@@ -158,8 +158,9 @@ void unsanitize_fft(double* input_real, double* input_imag, uint64_t size)
     }
 }
 
-double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw, double rg) 	// fc: center frequency; bw: bandwidth; not tested
+double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw, double rg, double *ary = 0) 	// fc: center frequency; bw: bandwidth; not tested
 {
+	int ly[2] = {y.size(), y_clean.size()};
 	int L = max(y.size(), y_clean.size());
 	int N_fft = pow(2, (int)log2(L) + 1);
 	MatrixXf signal(N_fft, 2);
@@ -173,41 +174,61 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 	float* P_db = new float[2];
 	int fl_id = ( (fc - rg/2) /rate + 0.5 )*N_fft;	
 	int fr_id = ( (fc + rg/2) /rate + 0.5 )*N_fft;	
+
+	// cout some mediate results
+	/*cout<<"\n-- N fft = "<<N_fft<<endl;
+	cout<<"-- y norm = "<<y.norm()<<endl;
+	cout<<"-- y_clean norm = "<<y_clean.norm()<<endl;
+	cout<<"-- fl_id = "<<fl_id<<" 	 fr_id = "<<fr_id<<endl;
+*/
 	
 	for(int i = 0; i < 2; i ++)
 	{
-		VectorXf x = signal.col(i);
+		VectorXd x = signal.col(i).cast<double>();
 		VectorXcd fx(N_fft);
 
-		// is it ok to convert float into double? for x.data()
+		fft(x.data(), NULL, N_fft, fx.real().data(), fx.imag().data());		// it's half-normalized
+		VectorXd fxn = fx.array().abs()  /(double) ly[i] *2;			// actually not right
 		
-		fft((double *)x.data(), NULL, N_fft, (double *)fx.real().data(), (double *)fx.imag().data());
-		VectorXd fxn = fx.array().abs() ;
-
 		VectorXd Px(N_fft), temp(N_fft);
 		Px.array() = 10*log10(fxn.array().square() /100 * 1000);		// calculate power spectrum in dB
 		temp.segment(0, N_fft/2) = Px.segment(N_fft/2, N_fft/2);		// fftshift
 		temp.segment(N_fft/2, N_fft/2) = Px.segment(0, N_fft/2);
 		Px = temp;
-
-		//cout<<"Px : "<<endl;
-		//cout<<endl<<Px.segment(5000,10)<<endl;
-
+		
 		if(!i)
 		{
 			int peak_id;
 			Px.segment(fl_id, fr_id - fl_id + 1).maxCoeff(&peak_id);
-			int ofst = peak_id - rg/2 *N_fft /rate;
-			int k = bw *L /2 /rate;
-			fr_id = fl_id + peak_id - 1 -k;
-			fl_id = fl_id + peak_id - 1 +k;
+			int k = bw *N_fft /2 /rate;
+			fr_id = fl_id + peak_id - 1 + k;
+			fl_id = fl_id + peak_id - 1 - k;
 		}
 
-		P_db[i] = Px.segment(fl_id, fr_id - fl_id + 1).mean(); 
+		//cout some results
+/*
+		cout<<endl<<"-- fx norm = "<<fxn.norm()<<endl;
+		cout<<"fx real norm = "<<fx.real().norm()<<endl;
+		cout<<"fx imag norm = "<<fx.imag().norm()<<endl;
+		cout<<"-- max(Px) = "<<Px.maxCoeff()<<endl;
+		cout<<"-- min(Px) = "<<Px.minCoeff()<<endl;
+		cout<<"-- fl_id = "<<fl_id<<" 	 fr_id = "<<fr_id<<endl;
+*/
 
+		P_db[i] = Px.segment(fl_id, fr_id - fl_id + 1).mean(); 
 	} 
 		
-	return P_db[0] - P_db[1];
+	double result = P_db[0] - P_db[1];
+	if(abs(result) > 1e3)
+	{	
+		cout<<" -- cancellation result is too large!"<<endl;
+		
+		exit(0);
+	}
+ 	ary[0] = P_db[0];
+	ary[1] = P_db[1];
+	return result;
+	//return P_db[0] - P_db[1];
 
 }
 
