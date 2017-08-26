@@ -94,7 +94,8 @@ const string file,
 	int num = 0;
 	// send value to buff
 	for(int i = 0; i < tx.size(); i ++)	
-		buff[i] = tx[i];				
+		buff[i] = tx[i];
+					
 
 	// write to file
 	ofstream tx_out;
@@ -340,10 +341,7 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	VectorXcf x_bit = sig.segment(pilot_sym_length,data_sym_length);
 
 	VectorXcf x0(signal_sym_length);					// note that x's length is not spb
-	x0.segment(0, preamble_sym_length) = preamble;
-	x0.segment(preamble_sym_length, pilot_sym_length) = pilot;
-	x0.segment(preamble_sym_length + pilot_sym_length, data_sym_length) = x_bit; 
-
+	x0 << preamble, pilot, x_bit;
 
 	// form the wave
 	VectorXcf tx = wave_generation(x0,beta,sps,span);			// complex * (real) rcos_filter = complex??
