@@ -11,8 +11,9 @@ Tranceler or transceiver\_canceler can not only transceive signal but also do th
 Besides, linear cancellation is tested reliable while all cancelers are updated to non linear cancellation since the latter can be linear by setting dim = 1 defaultly.
 
 #### 3. Function and header file
-digital\_SIC.cpp, rcos\_filter.cpp contain functions. wavetable.hpp is header file to generate different signals.
-sic\_db.cpp is used to calculate the cancellation result in dB through a fft block from github.
+digital\_SIC.cpp, rcos\_filter.cpp contain functions. They are now rewritten into every source file.
+wavetable.hpp, fft.hpp are header files. The former is to generate different signals and the latter is to realize fft and sic\_db().
+sic\_db.cpp is used to calculate the cancellation result in dB through a fft block from github. Now it is in fft.hpp.
 nonlinear.cpp is used to generate matrix A with nonlinear components for nonlinear cancellation. It also contains a back up of x2A() for linear cancellation only before.
 
 ### Classification by signal
@@ -36,9 +37,11 @@ transceiver_canceler_multi\_tone.cpp and tranceler_multi_tone\_rt.cpp are for mu
 
 
 #### 3. QPSK signal
-qpsk_tranceler.cpp, qpsk_transceiver\_1.cpp and rcos\_filter.cpp are for QPSK signal.
+qpsk_tranceler.cpp, qpsk_tranceler_rt.cpp, qpsk_transceiver\_1.cpp and rcos\_filter.cpp are for QPSK signal.
 
 * qpsk\_tranceler.cpp fails to do the cancellation for QPSK signal because it has no synchronization now. 
+
+* qpsk_tranceler_rt.cpp integrates real time part and calculation of cancellation (sic\_db()) but by now it cannot do the right synchronization. 
 
 * qpsk_transceiver_1.cpp can generate and transceive QPSK signal so that we can use them in Matlab and do the cancellation. It calls wave\_generation() and rcos\_filter() (inside qpsk_transceiver_1.cpp itself but from rcos\_filter.cpp) to generate continuous QPSK waveform from complex bipolar code like 1 + 1i, -1 - 1i. It works fine with Matlab cancellation and can get about 30 dB cancellation.
 
