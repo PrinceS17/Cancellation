@@ -4,13 +4,15 @@ clear all
 addpath(genpath('/home/flexicon/Documents/Cancellation/Cancellation'));
 build_path = {'/home/flexicon/Downloads/GNURadio/uhd/host/examples/transceiver_canceler/build';
     '/home/flexicon/Downloads/GNURadio/uhd/host/examples/transceiver_canceler_multi_tone/build';
-    '/home/flexicon/Downloads/GNURadio/uhd/host/examples/tranceler_multi_tone_rt/build'};
+    '/home/flexicon/Downloads/GNURadio/uhd/host/examples/tranceler_multi_tone_rt/build';
+    'D:/ѧϰ/Flexicon/04code/matlab_sic/qpsk_data'};
 filename = {'tx_file','rx_file','y_clean_file','estimated_pilot','rx_pilot';
     'tx_file_mt','rx_file_mt','y_clean_file_mt','estimated_pilot_mt','rx_pilot_mt';
     'tx_file','rx_file','y_clean_file','estimated_pilot','rx_pilot';
+    'tx_file','rx_file','y_clean_file','estimated_pilot','rx_pilot'
    };
 
-id = 1;           % switch: 1 for transceiver_canceler; 2 for multi_tone; 3 for multi_tone real time
+id = 4;           % switch: 1 for transceiver_canceler; 2 for multi_tone; 3 for multi_tone real time; 4 for qpsk on Windows
 
 [~,w] = size(filename);
 a = cell(1,w);

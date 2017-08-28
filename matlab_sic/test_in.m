@@ -1,12 +1,13 @@
 close all
 clear all
 path = {'/home/flexicon/Downloads/GNURadio/uhd/host/examples/qpsk_transceiver1/build/';
-    '/home/flexicon/Downloads/GNURadio/uhd/host/examples/transceiver/build/'
+    '/home/flexicon/Downloads/GNURadio/uhd/host/examples/transceiver/build/';
+    'D:/ѧϰ/Flexicon/04code/matlab_sic/qpsk_data/'
     };
 
-txname = {'tx_out','tx_out'};
-rxname = {'qpsk_2M','sine_wave_2M'};
-id = 2;
+txname = {'tx_out','tx_out','tx_file'};
+rxname = {'qpsk_2M','sine_wave_2M','rx_file'};
+id = 3;
 
 fid = fopen(strcat(path{id},txname{id}));              % read tx
 a1 = fread(fid,[2,inf],'float');
