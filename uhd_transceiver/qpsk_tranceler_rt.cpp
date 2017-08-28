@@ -164,7 +164,7 @@ VectorXf peaks(VectorXf& v, int num)	// return the biggest peaks idx; num: numbe
 
 	if(num > total_num)
 	{
-		cout<<"-- error: requested peaks is more than actual peaks!"<<endl;
+		cout<<"-- error: requested peaks is more than actual peaks! "<<endl;
 		cout<<"-- num = "<<num<<" , total_num = "<<total_num<<endl;
 	}
 	return idx.segment(0,num);
@@ -184,13 +184,31 @@ int dg_sync(VectorXf& preamble, VectorXf& rbuff)   // return delay in rbuff
 	
 	for(int i = 0; i < cor_length; i++) 
 		Cor(i) = preamble.transpose()*rbuff.segment(i,preamble.size());
-	/*Index idx;					        // simply find the max number
-	Cor.maxCoeff(&idx);*/
 	int peak_num = 5;
 	VectorXf idxs = peaks(Cor, peak_num);				// find the biggest 10 peaks
 	sort(idxs.data(),idxs.data() + peak_num,less<int>());		// find the earliest idx among the 10
 	return idxs(0);
 }
+
+int dg_sync(VectorXf& rbuff, int size)		// for synchronization for the whole signal
+{
+	int cor_length = rbuff.size() - size + 1;
+	cout<<" -- cor_length = "<<cor_length<<endl;
+	if(cor_length < 0)
+	{
+		cout<<"-- error: cor length is negative!"<<endl;
+		exit(0);
+	}
+	VectorXf Cor(cor_length);					        // make the preamble
+
+	for(int i = 0; i < cor_length; i++) 
+		Cor(i) = - rbuff.segment(i, size).array().abs().mean();	        // find the minimum abs mean of rbuff
+	int peak_num = 10;
+	VectorXf idxs = peaks(Cor, peak_num);					// find the biggest peaks
+	sort(idxs.data(),idxs.data() + peak_num,greater<int>());		// find the latest idx among the 10 ( 0s preamble is at last)
+	return idxs(0);
+
+} 
 
 VectorXf estimate(VectorXf& sbuff, VectorXf& rbuff, int estimator_length)  // 2, estimation: sbuff: -k, ..., n+k-1; rbuff: 0,...,n (now estimate with A calculating repeatly! )
 {
@@ -242,10 +260,10 @@ VectorXf dg_cancel(VectorXf& sbuff, VectorXf& rbuff, VectorXf& h, int estimator_
 }
 
 VectorXf dg_sic(
-	//VectorXf &x, 			// no need when using global variables
+	//VectorXf &x, 				      // no need when using global variables
 	//VectorXf &y,			              // initial signal got from UHD: here haven't defined complex number
 	int spb,	
-	VectorXf &preamble_vf,
+	int rx_begin_length,			      // for rx begin stage which the samples can't be used: round 0~10, sine and 0s
 	VectorXf &preamble,		              // should have complete definition later
 	int estimator_length,
 	int preamble_length,
@@ -259,6 +277,7 @@ VectorXf dg_sic(
 	// print basic information before cancellation
 	cout<<endl<<"-----------------start cancellation------------------------------"<<endl;
 	cout<<"-- sampling rate: "<<samp_rate<<endl;
+	cout<<"-- samples per buffer: "<<spb<<endl;
 	cout<<"-- signal_length: "<<signal_length<<endl;
 	cout<<"-- estimator_length: "<<estimator_length<<endl;
 	cout<<"-- preamble_length: "<<preamble_length<<endl;
@@ -285,12 +304,12 @@ VectorXf dg_sic(
 		int rx_num = global_num[1];
 		//cout<<" rx_num"<<rx_num<<endl;
 
-		if(!if_synced && rx_num > 5)		// for sync: suppose 5 buffer is the biggest delay
+		if(!if_synced && rx_num > 12)					// begin sync when there's enough length for rx
 		{
 			cout<<"-- synced! "<<endl;
-			rx1 = VectorXf::Zero(global_num[1]*spb);
+			rx1 = VectorXf::Zero((rx_num - 5)*spb);	
 			for(int i = 0; i < rx1.size(); i ++)
-				rx1[i] = global_rx[i % gsize].real();
+				rx1[i] = global_rx[i + 5*spb].real();		// discard first 5 buffers for later 0s
 			if_synced = 1;
 		}
 		else if(!if_synced) { mtx.unlock(); continue;}			// before synchronization
@@ -302,8 +321,10 @@ VectorXf dg_sic(
 				
 			for(int i = 0; i < signal_length; i ++)
 			{
-				x(i) = global_tx[(can_pos + i) % gsize].real();
-				y(i) = global_rx[(can_pos + i + delay_const) % gsize].real();	// detail of y_clean's length should be notice
+				x(i) = global_tx[(rx_begin_length + can_pos + i) % gsize].real();
+				y(i) = global_rx[(rx_begin_length + can_pos + i + delay_const) % gsize].real();	// detail of y_clean's length should be notice
+				if((rx_begin_length + can_pos + i) % gsize == 0 && can_pos + i) cout<<"-- x reaches end of global tx!"<<endl;
+				if((rx_begin_length + can_pos + i + delay_const) % gsize == 0) cout<<"-- y reaches end of global rx!"<<endl;
 			}
 			can_num ++;							// record the number of cancellation
 		}
@@ -312,7 +333,9 @@ VectorXf dg_sic(
 				
 		if(delay_const < 0)						// if rx1 read but not synchronized
 		{
-			delay_const = dg_sync(preamble_vf, rx1);		// synchronize for TX and RX			
+			//VectorXf preamble_0s = VectorXf::Zero(5*spb);
+			delay_const = dg_sync(rx1, spb) + 5*spb;		// synchronize for TX and RX: now use 0s	
+			delay_const = 1.3e5;					// manually; if too large, y is 0s without data -> peaks lack
 			cout<<"-- TX, RX delay = "<<delay_const<<endl;	
 			continue;
  		}
@@ -342,10 +365,10 @@ VectorXf dg_sic(
 		//double result = -1;		
 		double ary[2];
 		double bw = (double) 1.5*samp_rate/8;
-		double result = sic_db(y, y_clean, samp_rate, 0, bw, 10, ary);
+		double result = sic_db(y, y_clean, samp_rate, 0, bw, 2e3, ary);
 
 		// output the result
-		if(can_num%100 == 0)
+		if(can_num %10 == 0)
 		{			
 			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num;
 			cout<<" , Cancel No. "<<can_num*signal_length/spb;
@@ -401,28 +424,32 @@ const string file,
 		pre_buff[n] = tx[n];        // no problem 
 
 	// 1st preamble
-	bool if_preamble = 0;	
+	int round = 0;		   	
+	complex<float> a(2,0);
 
 	while(not stop_signal_called)	
 	{
-		if(!if_preamble)
-		{
-			buff = preamble_1;
-			if_preamble = 1;
-		}
-		else buff = pre_buff;
+		if(round < 5)
+			buff = preamble_1;		 // round: 0~4, send sine wave (preamble_1) until RX started
+		else if(round < 10)
+			buff.assign(spb, 0);		 // round: 5~9, return to 0s as preamble;
+		else buff = pre_buff;			 // round: send QPSK as usual
 
 		mtx.lock();
 		int tx_pos = spb*global_num[0];
 		for(int i = 0; i < spb; i ++)
+		{
 			global_tx[(tx_pos + i) % gsize] = buff[i];
+			if((tx_pos + i) % gsize == 0 && tx_pos + i) cout<<"-- New global tx buffer!"<<endl;
+		} 
 		
 		global_num[0] ++;
 		//cout<<"-- tx num: "<<global_num[0]<<endl;	
 		mtx.unlock();
 
 		num += tx0->send(&buff.front(),buff.size(),md);   // send tx data from buff
-	
+		round ++;
+
 		md.start_of_burst = false;
 		md.has_time_spec = false;
 
@@ -488,7 +515,10 @@ template<typename samp_type> void recv_to_file(
 		mtx.lock();
 		int rx_pos = spb*global_num[1];
 		for(int i = 0; i < spb; i ++)
+		{
 			global_rx[(rx_pos + i) % gsize] = rbuff[i];
+			if((rx_pos + i) % gsize == 0 && rx_pos + i) cout<<"-- New global rx buffer!"<<endl;
+		}
 		global_num[1] ++;
 		//cout<<"-- rx num: "<<global_num[1]<<endl;
 		mtx.unlock();
@@ -658,16 +688,15 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
    	int spb = tx0->get_max_num_samps()*10;       // why *10?
 	//int spb = 15000;
 	
-	int num_buff = 2000;				// test which is fine enough
+	int num_buff = 3000;				// test which is fine enough
 	global_rx.assign(num_buff*spb,0);		// initialize the global variables
 	global_tx.assign(num_buff*spb,0);
 	gsize = global_tx.size();
-	cout<<boost::format("-- spb = %f\n")%spb;
  	
 	// generate 1st preamble for TX, RX synchronization
 	vector <complex<float> > preamble_1(spb);	
 	for(int i = 0; i < spb; i ++)
-		preamble_1[i] = preamble_table(index += step);
+		preamble_1[i] = complex<float>(2,0)*preamble_table(index += step);
 
 	
 	//vector<complex<float> > buff(spb);
@@ -730,12 +759,13 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	VectorXcf p1 = wave_generation(preamble,beta,sps,span);
 	VectorXf preamble1 = p1.real();
 	
+/*
 	VectorXf preamble_vf(spb);
 	for(int i = 0; i < spb; i ++)
 		preamble_vf[i] = preamble_1[i].real();
-
-	
-	threads.create_thread(boost::bind(&dg_sic, spb, preamble_vf, preamble1, estimator_length, preamble_length, pilot_length, signal_length, rate)); //, beta, sps));
+*/
+	int rx_begin_length = 10*spb;		// for sine and 0s, 10 buff in all
+	threads.create_thread(boost::bind(&dg_sic, spb, rx_begin_length, preamble1, estimator_length, preamble_length, pilot_length, signal_length, rate)); //, beta, sps));	
 
 
 	// receive begin
@@ -762,3 +792,6 @@ int UHD_SAFE_MAIN(int argc,char *argv[]){
 	return EXIT_SUCCESS;
 
 }
+
+
+
