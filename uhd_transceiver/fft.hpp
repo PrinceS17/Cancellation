@@ -166,10 +166,15 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 	MatrixXf signal(N_fft, 2);
 	
 	// complete the  col vector by 0s for FFT, very stupid code
+	signal.col(0) << y, VectorXf::Zero(N_fft - y.size()) ;
+	signal.col(1) << y_clean, VectorXf::Zero(N_fft - y.size());
+
+/*
 	signal.col(0).segment(0, y.size()) = y ;
 	signal.col(0).segment(y.size(), N_fft - y.size()) = VectorXf::Zero(N_fft - y.size()) ;
 	signal.col(1).segment(0, y_clean.size()) = y_clean ;
 	signal.col(1).segment(y_clean.size(), N_fft - y_clean.size()) = VectorXf::Zero(N_fft - y.size()) ;
+*/
 
 	float* P_db = new float[2];
 	int fl_id = ( (fc - rg/2) /rate + 0.5 )*N_fft;	
