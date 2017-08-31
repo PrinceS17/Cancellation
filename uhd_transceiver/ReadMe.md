@@ -29,11 +29,14 @@ transceiver\_0.cpp, transceiver\_canceler.cpp and transceiver_canceler_rt\_sync.
 Besides, digital\_SIC.cpp is the first version of cancellation part in any canceler. It is out of date now, however, because no other code calls it.
 
 #### 2. multi-tone sine wave
-transceiver_canceler_multi\_tone.cpp and tranceler_multi_tone\_rt.cpp are for multi-tone sine wave.
+transceiver_canceler_multi\_tone.cpp, tranceler_multi_tone\_rt.cpp tranceler_mt_rt\_final.cpp are for multi-tone sine wave.
 
 * transceiver_canceler_multi\_tone.cpp is the first version for multi-tone sine wave, which changes TX from above. It does offline cancellation in another thread for 4 tones now, 100 kHz to 400 kHz with a sampling rate of 2 MHz. It is tested. 
 
 * tranceler_multi_tone\_rt.cpp adds real time and signal synchronization parts and the cancellation hasn't been tested yet. 
+
+* tranceler_mt_rt\_final.cpp has several changes compared to code above: 
+**1) based on VectorXcf instead of vector; 2) move x2A(), greater1() and peaks() to header file nonlinear\_peak.hpp; 3) modify transmitter(), receiver() and digital\_canceler() to make them suitable for multi-tone sine wave.
 
 
 #### 3. QPSK signal
