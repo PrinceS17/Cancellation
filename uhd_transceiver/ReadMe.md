@@ -55,15 +55,12 @@ These examples are all based on UHD TX and RX examples and it is simple to run i
 
 There's an folder for QPSK tranceler. It contains fft.hpp, wavetable.hpp and can be build, make and run by these commands:
 
+```
 mkdir build
-
 cd build
-
 cmake ..
-
 make
-
 ./qpsk_tranceler_rt
-
+```
 
 Notice that if your library or Eigen need root to access, you need to use "sudo make" instead of "make" to make the program.
