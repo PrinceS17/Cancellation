@@ -337,7 +337,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 
 	double freq, gain, total_num_samps, total_time, bw;		// default setting 
 	freq = 915e6;
-	gain = 30;
+	gain = 25;
 	bw = 1e6;
 	total_num_samps = 0;
 	total_time = 20;
@@ -409,7 +409,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 	VectorXf temp = VectorXf::Zero(spb);
 	VectorXf wave_freq = VectorXf::LinSpaced(wave_num, wave_freq_1, wave_freq_1 + (wave_num - 1)*wave_space);
 	for(int i = 0; i < wave_num; i ++)
-		temp.array() = temp.array() + ampl * (2*pi*wave_freq[i]*t).array().sin() ;
+		temp.array() = temp.array() + ampl / wave_num * (2*pi*wave_freq[i]*t).array().sin() ;
 	VectorXcf mt_sine = temp.cast<complex <float> > ();
 
 	
