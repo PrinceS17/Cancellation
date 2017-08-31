@@ -6,7 +6,7 @@ These are the C++ codes for UHD and are tested on USRP B205mini. There are two w
 Transceiver can generate different waveforms, send and receive them with USRP and usually write into file. The first transceiver, transceiver0.cpp, is for sine wave and it comes from a uhd example, txrx_loop_back_to_file.cpp. Generally, transceiver is used to observe the original signal without processing. It can also provide proper TX and RX signals for Matlab code to do the cancellation, like what qpsk\_transceiver1.cpp does.
 
 #### 2. Tranceler
-Tranceler or transceiver\_canceler can not only transceive signal but also do the cancellation. There are trancelers for single sine wave, multi-tone sine wave and QPSK signal. And they can be divided into offline canceler and real time canceler (not true "real time" but can update cancellation result continuously). By far, canceler for single sine wave, offline canceler for multi-tone sine wave have been realized basically and tested with USRP.
+Tranceler or transceiver\_canceler can not only transceive signal but also do the cancellation. There are trancelers for single sine wave, multi-tone sine wave and QPSK signal. And they can be divided into offline canceler and real time canceler (not true "real time" but can update cancellation result continuously). By far, canceler for single sine wave, offline canceler for multi-tone sine wave have been realized basically and tested with USRP. Real time canceler for QPSK signal is realized but doesn't manage to cancel SI due to bad synchronization.
 
 Besides, linear cancellation is tested reliable while all cancelers are updated to non linear cancellation since the latter can be linear by setting dim = 1 defaultly.
 
@@ -46,3 +46,17 @@ qpsk_tranceler.cpp, qpsk_tranceler_rt.cpp, qpsk_transceiver\_1.cpp and rcos\_fil
 * qpsk_transceiver_1.cpp can generate and transceive QPSK signal so that we can use them in Matlab and do the cancellation. It calls wave\_generation() and rcos\_filter() (inside qpsk_transceiver_1.cpp itself but from rcos\_filter.cpp) to generate continuous QPSK waveform from complex bipolar code like 1 + 1i, -1 - 1i. It works fine with Matlab cancellation and can get about 30 dB cancellation.
 
 * rcos\_filter.cpp contains primary function about waveform generation of band-limited signal, such as rcos_filter() and wave_generation(). The former generates a raised cosine filter and the latter uses it to generate actual TX waveform like QPSK TX signal. main() generates QPSK TX signal so it can be easily integrated into transceiver and canceler code.
+
+
+### How to run the example
+These examples are all based on UHD TX and RX examples and it is simple to run if you have experience with UHD. And it is highly recommended to take a look at the UHD tutorials. Take linux for example. First, check dependents of the code, Eigen files, boost and uhd library. Then, put these file into the same folder of UHD examples. When you want to run an example, create a new folder, put source, header file and CMakeLists.txt into the folder and then build the project.
+
+There's an folder for QPSK tranceler. It contains fft.hpp, wavetable.hpp and can be build, make and run by these commands:
+
+mkdir build
+cd build
+cmake ..
+make
+./qpsk_tranceler_rt
+
+Notice that if your library or Eigen need root to access, you need to use "sudo make" instead of "make" to make the program.
