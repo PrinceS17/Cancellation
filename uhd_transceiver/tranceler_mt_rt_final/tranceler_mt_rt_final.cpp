@@ -92,6 +92,7 @@ VectorXf digital_canceler(
 	VectorXf &preamble,
 	int samp_rate,
 	int spb,
+	int start,
 	int estimator_length,
 	int preamble_length,
 	int pilot_length,			// notice: pilot length is n + 1
@@ -102,14 +103,16 @@ VectorXf digital_canceler(
 	// print basic information before cancellation
 	cout<<endl<<"------------------- start cancellation -------------------------"<<endl;
 	cout<<"-- sampling rate: "<<samp_rate<<endl;
+	cout<<"-- samples per buffer: "<<spb<<endl;
 	cout<<"-- signal_length: "<<signal_length<<endl;
+	cout<<"-- start: "<<start<<endl;
 	cout<<"-- estimator_length: "<<estimator_length<<endl;
 	cout<<"-- preamble_length: "<<preamble_length<<endl;
 	cout<<"-- pilot_length: "<<pilot_length<<endl<<endl;
 	
 	int delay_const = 1.38e5;		// default constant of TX, RX delay
 	int can_num;					// # of cancellation iterations
-	int num[3] = {0, 0, 0};
+	int num[3] = {0, 0, 0};			// # of samples written into file
 	ofstream outfile[3];
 	for(int i = 0; i < 3; i ++)
 		outfile[i].open(file[i].c_str(), ios::out | ios::binary);
@@ -138,19 +141,24 @@ VectorXf digital_canceler(
 			cout<<"-- Error: requested pilot exceeds boundary!"<<endl;
 			exit(0);
 		}
-		VectorXf tx_pilot = x.segment(preamble_length - k, pilot_length + 2*k - 1);
-		VectorXf rx_pilot = y.segment(delay + preamble_length, pilot_length);
+		if(start + preamble_length < k)
+		{
+			cout<<"-- Error: no enough samples for channel estimation!"<<endl;
+			exit(0);
+		}
+		VectorXf tx_pilot = x.segment(start + preamble_length - k, pilot_length + 2*k - 1);
+		VectorXf rx_pilot = y.segment(start + delay + preamble_length, pilot_length);
 		VectorXf h = estimate(tx_pilot, rx_pilot, estimator_length);
 
 		// do the cancellation
-		int L = signal_length -delay + k -1;		// possible largest length of data for sine wave
-		VectorXf tx_data = x.segment(preamble_length + pilot_length - k, L - pilot_length - preamble_length + k);
-		VectorXf rx_data = y.segment(delay + preamble_length + pilot_length, L - pilot_length - preamble_length - k + 1);
+		int L = signal_length - delay - start + k -1;		// possible largest length of data for sine wave
+		VectorXf tx_data = x.segment(start + preamble_length + pilot_length - k, L - pilot_length - preamble_length + k);
+		VectorXf rx_data = y.segment(start + delay + preamble_length + pilot_length, L - pilot_length - preamble_length - k + 1);
 		VectorXf y_clean = dg_cancel(tx_data, rx_data, h, estimator_length);
 
 		// std output
 		if(can_num%100 == 0)
-			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num<<" , Cancel No. "<<can_num*signal_length/spb<<endl;
+			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num<<" , Cancel No. "<<can_num * signal_length / spb<<endl;
 		
 		// write results to file
 		float * ptr[3] = {x.data(), y.data(), y_clean.data()};
@@ -207,7 +215,6 @@ void transmitter(
 }
 
 void receiver(
-	uhd::usrp::multi_usrp::sptr usrp,
 	uhd::rx_streamer::sptr rx,
 	int spb,
 	double num_requested_samples,
@@ -301,37 +308,43 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 	pps = "internal";
 	string file[3] = {"tx_file", "rx_file", "y_clean_file"};
 
-	double freq, rate, gain, total_num_samps, total_time, bw;		// default setting 
+	double freq, gain, total_num_samps, total_time, bw;		// default setting 
 	freq = 915e6;
-	rate = 2e6;
 	gain = 25;
+	bw = 1e6;
 	total_num_samps = 0;
 	total_time = 20;
-	bw = 1e6;
 
-	double rate, rx_rate, tx_rate, tx_gain, rx_gain, ampl;		// parameters set by po
+	double rate, tx_gain, rx_gain, ampl;		// parameters set by po
+
+	double wave_freq_1, wave_space;								// about multi-sine generation
+	int wave_num;												// 4 tones by default
+
 	uhd::set_thread_priority();
 	po::option_description desc("Allowed options");
 	desc.add_options()
 		("tx_args",po::value<string>(&tx_args)->default_value(""),"uhd device address args")
 		("rx_args",po::value<string>(&rx_args)->default_value(""),"uhd device address args")
-		("tx-rate", po::value<double>(&tx_rate)->default_value(rate), "rate of transmit outgoing samples")
-		("rx-rate", po::value<double>(&rx_rate)->default_value(rate), "rate of receive incoming samples")
+		("rate", po::value<double>(&rate)->default_value(2e6), "rate of transmit and receive samples")
         ("ampl", po::value<float>(&ampl)->default_value(float(0.3)), "amplitude of the waveform [0 to 0.7]")
 		("tx-gain", po::value<double>(&tx_gain)->default_value(gain), "gain for the transmit RF chain")
 		("rx-gain", po::value<double>(&rx_gain)->default_value(gain), "gain for the receive RF chain")
+		("wave-num", po::value<int>(&wave_num)->default_value(4), "number of sine wave tones")
+		("wave-freq-1", po::value<double>(&wave_freq_1)->default_value(100e3), "1st waveform frequency in Hz")
+		("wave_space", po::value<double>(&wave_space)->default_value(100e3), "spacing between adjacent tones")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
+	
 
 	// set the usrp
 	uhd::usrp::multi_usrp::sptr tx_usrp = uhd::usrp::multi_usrp::make(tx_args);
 	uhd::usrp::multi_usrp::sptr rx_usrp = uhd::usrp::multi_usrp::make(rx_args);
 
     tx_usrp->set_clock_source(ref);
-	tx_usrp->set_tx_rate(tx_rate);
-	rx_usrp->set_rx_rate(rx_rate);
+	tx_usrp->set_tx_rate(rate);
+	rx_usrp->set_rx_rate(rate);
 	cout<<boost::format("Actual tx rate: %f Msps ...")%(tx_usrp->get_tx_rate()/1e6)<<endl;
 	cout<<boost::format("Actual rx rate: %f Msps ...")%(rx_usrp->get_rx_rate()/1e6)<<endl;
 
@@ -353,29 +366,29 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 	std::cout<<boost::format("Using TX Device: %s") % tx_usrp->get_pp_string()<<endl;
 	std::cout<<boost::format("Using RX Device: %s") % rx_usrp->get_pp_string()<<endl;
     
+
 	// set transmit & receive streamer
 	uhd::stream_args_t stream_args(cpu, wire);
 	uhd::tx_streamer::sptr tx = tx_usrp->get_tx_stream(stream_args);
 	uhd::rx_streamer::sptr rx = rx_usrp->get_rx_stream(stream_args);
 	int spb = tx->get_max_num_samps() * 10;
+	tx_usrp->set_time_now(0.0);
 	
 
 	// calculate multi-tone sine wave: get tone freqs and generate mt_sine
-	VectorXf t = VectorXf::LinSpaced(spb, 1, spb);
-
-
-
-
-
-	VectorXf temp = ampl*( t.array().sin()   );
-	
+	VectorXf t = VectorXf::LinSpaced(spb, 1, spb)/rate;
+	VectorXf temp = VectorXf::Zero(spb);
+	VectorXf wave_freq = VectorXf::LinSpaced(wave_num, wave_freq_1, wave_freq_1 + (wave_num - 1)*wave_space);
+	for(int i = 0; i < wave_num; i ++)
+		temp.array() = temp.array() + ampl * (2*pi*wave_freq[i]*t).array().sin() ;
 	VectorXcf mt_sine = temp.cast<complex <float> > ();
 
+	
 	// set global buffers
 	int num_buff = 1000;
-	global_rx = VectorXcf::Zero(num_buff*spb);
-	global_tx = VectorXcf::Zero(num_buff*spb);
-	gsize = global_tx.size();
+	global_rx = VectorXcf::Zero(num_buff * spb);
+	global_tx = VectorXcf::Zero(num_buff * spb);
+	gsize = num_buff * spb;
 
 
 	// check rdf and L0 lock detect is here
@@ -398,10 +411,12 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 		std::signal(SIGINT, &sig_int_handler);
 		std::cout << "Press Ctrl + C to stop streaming..." << std::endl;
 	}
+
 	
     //reset usrp time to prepare for transmit/receive
     std::cout << boost::format("Setting device timestamp to 0...") << std::endl;
     tx_usrp->set_time_now(uhd::time_spec_t(0.0));
+
 
 	// set up metadata for transmitter
 	uhd::tx_metadata_t md;
@@ -410,22 +425,25 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 	md.has_time_spec = true;                // set true to send at the time specified by time spec; set false to send immediately
 	md.time_spec = uhd::time_spec_t(0.1);
 	
+
 	// set up signal structure and generate preamble from multi-tone frequency
-	
-
-
+	int start = 30;
+	int preamble_length = rate/wave_freq_1;
+	int estimator_length = 42;
+	int pilot_length = 600;
+	int signal_length = spb;
+	VectorXf preamble = mt_sine.segment(1, preamble_length);
 
 	
 	// set up threads for transmitter and digital canceler
 	boost::thread_group threads;
 	threads.create_thread(boost::bind(&transmitter, mt_sine, tx, md, spb));
-	threads.create_thread(boost::bind(&digital_canceler, preamble, rate, spb, estimator_length, preamble_length, pilot_length, signal_length, file));
+	threads.create_thread(boost::bind(&digital_canceler, preamble, rate, spb, start, estimator_length, preamble_length, pilot_length, signal_length, file));
+	receiver(rx, spb, total_num_samps);
 
-	receiver(rx_usrp, rx, spb, total_num_samps);
 
 	//finished
 	stop_signal_called = true;	
-	std::cout << std::endl << "-- Done!" << std::endl << std::endl;
 	cout<<"-- Done!"<<endl<<endl;
 	return EXIT_SUCCESS;
 
