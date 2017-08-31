@@ -36,7 +36,8 @@ transceiver_canceler_multi\_tone.cpp, tranceler_multi_tone\_rt.cpp tranceler_mt_
 * tranceler_multi_tone\_rt.cpp adds real time and signal synchronization parts and the cancellation hasn't been tested yet. 
 
 * tranceler_mt_rt\_final.cpp has several changes compared to code above: 
-**1) based on VectorXcf instead of vector; 2) move x2A(), greater1() and peaks() to header file nonlinear\_peak.hpp; 3) modify transmitter(), receiver() and digital\_canceler() to make them suitable for multi-tone sine wave.
+
+1) based on VectorXcf instead of vector; 2) move x2A(), greater1() and peaks() to header file nonlinear\_peak.hpp; 3) modify transmitter(), receiver() and digital\_canceler() to make them suitable for multi-tone sine wave.
 
 
 #### 3. QPSK signal
