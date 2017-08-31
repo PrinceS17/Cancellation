@@ -4,7 +4,8 @@ Different from UHD examples, it uses VectorXf to generate sine wave of precise f
 It depends on fft.hpp, nonlinear_peak.hpp. fft() and sic_db() are in fft.hpp, and nonlinear x2A() and peaks() are in nonlinear_peak.hpp.
 */
 
-
+#include "nonlinear_peak.hpp"
+#include "fft.hpp"
 #include <uhd/utils/thread_priority.hpp>
 #include <uhd/utils/safe_main.hpp>
 #include <uhd/usrp/multi_usrp.hpp>
@@ -17,6 +18,7 @@ It depends on fft.hpp, nonlinear_peak.hpp. fft() and sic_db() are in fft.hpp, an
 #include <boost/math/special_functions/round.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/filesystem.hpp>
 #include <Eigen/Dense>
 #include <Eigen/SVD>
 #include <vector>
@@ -26,8 +28,7 @@ It depends on fft.hpp, nonlinear_peak.hpp. fft() and sic_db() are in fft.hpp, an
 #include <csignal>
 #include <stdint.h>
 #include <cmath>
-#include "nonlinear_peak.hpp"
-#include "fft.hpp"
+
 #define pi 3.14159265358979323846
 
 using namespace Eigen;
@@ -89,18 +90,21 @@ VectorXf dg_cancel(VectorXf &sbuff, VectorXf &rbuff, VectorXf &h, int estimator_
 }
 
 VectorXf digital_canceler(
-	VectorXf &preamble,
+	VectorXf &preamble,	
+	VectorXf &wave_freq,
 	int samp_rate,
 	int spb,
 	int start,
-	int estimator_length,
-	int preamble_length,
-	int pilot_length,			// notice: pilot length is n + 1
-	int signal_length,
+	int *len,
 	string *file
 	)
 {	
 	// print basic information before cancellation
+	int estimator_length = len[0];
+	int preamble_length = len[1];
+	int pilot_length = len[2];			// notice: pilot length is n + 1
+	int signal_length = len[3];	
+
 	cout<<endl<<"------------------- start cancellation -------------------------"<<endl;
 	cout<<"-- sampling rate: "<<samp_rate<<endl;
 	cout<<"-- samples per buffer: "<<spb<<endl;
@@ -111,7 +115,7 @@ VectorXf digital_canceler(
 	cout<<"-- pilot_length: "<<pilot_length<<endl<<endl;
 	
 	int delay_const = 1.38e5;		// default constant of TX, RX delay
-	int can_num;					// # of cancellation iterations
+	int can_num = 0;					// # of cancellation iterations
 	int num[3] = {0, 0, 0};			// # of samples written into file
 	ofstream outfile[3];
 	for(int i = 0; i < 3; i ++)
@@ -124,6 +128,12 @@ VectorXf digital_canceler(
 		mtx.lock();
 		int tx_num = global_num[0];
 		int rx_num = global_num[1];
+		
+		if(rx_num <= delay_const / spb + 2)		// avoid reading 0s when there's no signal in global buffers
+		{
+			mtx.unlock();
+			continue;
+		}
 		int can_pos = can_num * signal_length;
 		for(int i = 0; i <signal_length; i ++)	
 		{
@@ -132,7 +142,8 @@ VectorXf digital_canceler(
 		}
 		can_num ++;	
 		mtx.unlock();
-
+		
+		
 		// define TX/RX pilot & estimate h
 		int k = estimator_length / 2;
 		int delay = dg_sync(preamble, y);
@@ -150,15 +161,31 @@ VectorXf digital_canceler(
 		VectorXf rx_pilot = y.segment(start + delay + preamble_length, pilot_length);
 		VectorXf h = estimate(tx_pilot, rx_pilot, estimator_length);
 
+
 		// do the cancellation
 		int L = signal_length - delay - start + k -1;		// possible largest length of data for sine wave
 		VectorXf tx_data = x.segment(start + preamble_length + pilot_length - k, L - pilot_length - preamble_length + k);
 		VectorXf rx_data = y.segment(start + delay + preamble_length + pilot_length, L - pilot_length - preamble_length - k + 1);
 		VectorXf y_clean = dg_cancel(tx_data, rx_data, h, estimator_length);
 
-		// std output
+
+		// calculate the cancellation and std output
+		double bw = 1e2;
+		double rg = 5e3;
+		int wave_num = wave_freq.size();	
 		if(can_num%100 == 0)
+		{	
 			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num<<" , Cancel No. "<<can_num * signal_length / spb<<endl;
+			
+			MatrixXd ary(wave_num, 2);
+			VectorXf result(wave_num);			
+			for(int i = 0; i < wave_num; i ++)
+			{
+				result[i] = sic_db(y, y_clean, samp_rate, wave_freq[i], bw, rg, ary.row(i).data());
+				cout<<"   "<<wave_freq[i]/1e3<<" kHz: "<<setprecision(3)<< result[i]<<" dB, "<< ary(i, 0)<<" -> "<< ary(i, 1)<<" dB"<<endl;
+			}
+			cout<<"   Total: "<<setprecision(3)<<result.mean()<<" dB"<<endl;
+		}
 		
 		// write results to file
 		float * ptr[3] = {x.data(), y.data(), y_clean.data()};
@@ -310,23 +337,25 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 
 	double freq, gain, total_num_samps, total_time, bw;		// default setting 
 	freq = 915e6;
-	gain = 25;
+	gain = 30;
 	bw = 1e6;
 	total_num_samps = 0;
 	total_time = 20;
 
-	double rate, tx_gain, rx_gain, ampl;		// parameters set by po
+	double rate, tx_gain, rx_gain;		// parameters set by po
+	float ampl;
 
 	double wave_freq_1, wave_space;								// about multi-sine generation
 	int wave_num;												// 4 tones by default
 
 	uhd::set_thread_priority();
-	po::option_description desc("Allowed options");
+
+	po::options_description desc("Allowed options");
 	desc.add_options()
 		("tx_args",po::value<string>(&tx_args)->default_value(""),"uhd device address args")
 		("rx_args",po::value<string>(&rx_args)->default_value(""),"uhd device address args")
 		("rate", po::value<double>(&rate)->default_value(2e6), "rate of transmit and receive samples")
-        ("ampl", po::value<float>(&ampl)->default_value(float(0.3)), "amplitude of the waveform [0 to 0.7]")
+        	("ampl", po::value<float>(&ampl)->default_value(float(0.3)), "amplitude of the waveform [0 to 0.7]")
 		("tx-gain", po::value<double>(&tx_gain)->default_value(gain), "gain for the transmit RF chain")
 		("rx-gain", po::value<double>(&rx_gain)->default_value(gain), "gain for the receive RF chain")
 		("wave-num", po::value<int>(&wave_num)->default_value(4), "number of sine wave tones")
@@ -335,14 +364,14 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
+	po::notify(vm);
 	
 
 	// set the usrp
 	uhd::usrp::multi_usrp::sptr tx_usrp = uhd::usrp::multi_usrp::make(tx_args);
 	uhd::usrp::multi_usrp::sptr rx_usrp = uhd::usrp::multi_usrp::make(rx_args);
 
-    tx_usrp->set_clock_source(ref);
+	tx_usrp->set_clock_source(ref);
 	tx_usrp->set_tx_rate(rate);
 	rx_usrp->set_rx_rate(rate);
 	cout<<boost::format("Actual tx rate: %f Msps ...")%(tx_usrp->get_tx_rate()/1e6)<<endl;
@@ -432,14 +461,15 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 	int estimator_length = 42;
 	int pilot_length = 600;
 	int signal_length = spb;
-	VectorXf preamble = mt_sine.segment(1, preamble_length);
+	int len[4] = {estimator_length, preamble_length, pilot_length, signal_length};
+	VectorXf preamble = mt_sine.segment(1, preamble_length).real();
 
 	
 	// set up threads for transmitter and digital canceler
 	boost::thread_group threads;
 	threads.create_thread(boost::bind(&transmitter, mt_sine, tx, md, spb));
-	threads.create_thread(boost::bind(&digital_canceler, preamble, rate, spb, start, estimator_length, preamble_length, pilot_length, signal_length, file));
-	receiver(rx, spb, total_num_samps);
+	threads.create_thread(boost::bind(&receiver, rx, spb, total_num_samps, 0, false, false));
+	digital_canceler(preamble, wave_freq, rate, spb, start, len, file);
 
 
 	//finished

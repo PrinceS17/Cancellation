@@ -1,0 +1,1 @@
+/usr/bin/c++   -O3 -DNDEBUG    CMakeFiles/tranceler_mt_rt_final.dir/tranceler_mt_rt_final.cpp.o  -o tranceler_mt_rt_final -rdynamic /usr/local/lib/libuhd.so -lboost_program_options -lboost_system -lboost_thread -lpthread -Wl,-rpath,/usr/local/lib 
