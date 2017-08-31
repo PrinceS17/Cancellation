@@ -31,8 +31,6 @@ nonlinear_peak.hpp
 /home/flexicon/Downloads/GNURadio/uhd/host/examples/tranceler_mt_rt_final/nonlinear_peak.hpp
 fft.hpp
 /home/flexicon/Downloads/GNURadio/uhd/host/examples/tranceler_mt_rt_final/fft.hpp
-wavetable.hpp
-/home/flexicon/Downloads/GNURadio/uhd/host/examples/tranceler_mt_rt_final/wavetable.hpp
 uhd/utils/thread_priority.hpp
 -
 uhd/utils/safe_main.hpp
@@ -76,18 +74,6 @@ csignal
 stdint.h
 -
 cmath
--
-
-/home/flexicon/Downloads/GNURadio/uhd/host/examples/tranceler_mt_rt_final/wavetable.hpp
-string
--
-cmath
--
-complex
--
-vector
--
-stdexcept
 -
 
 /usr/local/include/Eigen/Cholesky

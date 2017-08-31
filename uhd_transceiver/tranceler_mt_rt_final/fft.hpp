@@ -165,16 +165,9 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 	int N_fft = pow(2, (int)log2(L) + 1);
 	MatrixXf signal(N_fft, 2);
 	
-	// complete the  col vector by 0s for FFT, very stupid code
+	// complete the  col vector by 0s for FFT
 	signal.col(0) << y, VectorXf::Zero(N_fft - y.size()) ;
-	signal.col(1) << y_clean, VectorXf::Zero(N_fft - y.size());
-
-/*
-	signal.col(0).segment(0, y.size()) = y ;
-	signal.col(0).segment(y.size(), N_fft - y.size()) = VectorXf::Zero(N_fft - y.size()) ;
-	signal.col(1).segment(0, y_clean.size()) = y_clean ;
-	signal.col(1).segment(y_clean.size(), N_fft - y_clean.size()) = VectorXf::Zero(N_fft - y.size()) ;
-*/
+	signal.col(1) << y_clean, VectorXf::Zero(N_fft - y_clean.size());
 
 	float* P_db = new float[2];
 	int fl_id = ( (fc - rg/2) /rate + 0.5 )*N_fft;	
@@ -197,8 +190,7 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 		
 		VectorXd Px(N_fft), temp(N_fft);
 		Px.array() = 10*log10(fxn.array().square() /100 * 1000);		// calculate power spectrum in dB
-		temp.segment(0, N_fft/2) = Px.segment(N_fft/2, N_fft/2);		// fftshift
-		temp.segment(N_fft/2, N_fft/2) = Px.segment(0, N_fft/2);
+		temp << Px.segment(N_fft/2, N_fft/2), Px.segment(0, N_fft/2);		// fft shift
 		Px = temp;
 		
 		if(!i)
@@ -219,8 +211,6 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 		cout<<"-- min(Px) = "<<Px.minCoeff()<<endl;
 */
 		//cout<<"-- fl_id = "<<fl_id<<" 	 fr_id = "<<fr_id<<endl;
-
-
 		P_db[i] = Px.segment(fl_id, fr_id - fl_id + 1).mean(); 
 	} 
 		

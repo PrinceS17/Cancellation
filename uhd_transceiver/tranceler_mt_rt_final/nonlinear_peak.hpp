@@ -27,7 +27,7 @@ MatrixXf x2A(VectorXf & x, int k, int dim)
 
 MatrixXf x2A(VectorXf & x, int k)	        // default dim is 1
 {
-	return x2A(x, k, 1);
+	return x2A(x, k, 4);
 }
 
 class greater1

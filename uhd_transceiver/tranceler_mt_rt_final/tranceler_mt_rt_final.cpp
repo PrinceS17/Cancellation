@@ -170,19 +170,21 @@ VectorXf digital_canceler(
 
 
 		// calculate the cancellation and std output
-		double bw = 1e2;
+		double bw = 200;
 		double rg = 5e3;
 		int wave_num = wave_freq.size();	
 		if(can_num%100 == 0)
 		{	
 			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num<<" , Cancel No. "<<can_num * signal_length / spb<<endl;
 			
-			MatrixXd ary(wave_num, 2);
+			//MatrixXd ary(wave_num, 2);
+			double **ary = new double *[wave_num];
 			VectorXf result(wave_num);			
 			for(int i = 0; i < wave_num; i ++)
 			{
-				result[i] = sic_db(y, y_clean, samp_rate, wave_freq[i], bw, rg, ary.row(i).data());
-				cout<<"   "<<wave_freq[i]/1e3<<" kHz: "<<setprecision(3)<< result[i]<<" dB, "<< ary(i, 0)<<" -> "<< ary(i, 1)<<" dB"<<endl;
+				ary[i] = new double [2];
+				result[i] = sic_db(y, y_clean, samp_rate, wave_freq[i], bw, rg, ary[i]);
+				cout<<"   "<<wave_freq[i]/1e3<<" kHz: "<<setprecision(3)<< result[i]<<" dB, "<< ary[i][0]<<" -> "<< ary[i][1]<<" dB"<<endl;
 			}
 			cout<<"   Total: "<<setprecision(3)<<result.mean()<<" dB"<<endl;
 		}
@@ -360,7 +362,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 		("rx-gain", po::value<double>(&rx_gain)->default_value(gain), "gain for the receive RF chain")
 		("wave-num", po::value<int>(&wave_num)->default_value(4), "number of sine wave tones")
 		("wave-freq-1", po::value<double>(&wave_freq_1)->default_value(100e3), "1st waveform frequency in Hz")
-		("wave_space", po::value<double>(&wave_space)->default_value(100e3), "spacing between adjacent tones")
+		("wave-space", po::value<double>(&wave_space)->default_value(100e3), "spacing between adjacent tones")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
