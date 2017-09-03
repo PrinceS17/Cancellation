@@ -6,9 +6,11 @@ These are the C++ codes for UHD and are tested on USRP B205mini. There are two w
 Transceiver can generate different waveforms, send and receive them with USRP and usually write into file. The first transceiver, transceiver0.cpp, is for sine wave and it comes from a uhd example, txrx_loop_back_to_file.cpp. Generally, transceiver is used to observe the original signal without processing. It can also provide proper TX and RX signals for Matlab code to do the cancellation, like what qpsk\_transceiver1.cpp does.
 
 #### 2. Tranceler
-Tranceler or transceiver\_canceler can not only transceive signal but also do the cancellation. There are trancelers for single sine wave, multi-tone sine wave and QPSK signal. And they can be divided into offline canceler and real time canceler (not true "real time" but can update cancellation result continuously). By far, canceler for single sine wave, offline canceler for multi-tone sine wave have been realized basically and tested with USRP. Real time canceler for QPSK signal is realized but doesn't manage to cancel SI due to bad synchronization.
+Tranceler or transceiver\_canceler can not only transceive signal but also do the cancellation. There are trancelers for single sine wave, multi-tone sine wave and QPSK signal. And they can be divided into offline canceler and real time canceler (not true "real time" but can update cancellation result continuously). By far, canceler for single sine wave, multi-tone sine wave have been realized basically and tested with USRP. Real time canceler for QPSK signal is realized but doesn't manage to cancel SI due to bad synchronization.
 
-Besides, linear cancellation is tested reliable while all cancelers are updated to non linear cancellation since the latter can be linear by setting dim = 1 defaultly.
+Besides, linear cancellation is tested reliable while all cancelers are updated to non linear cancellation since the latter can be linear by setting dim = 1 defaultly. 
+
+Nonlinear cancellation prove reliable as long as generated sine wave has a precise frequency, which can be only realized based on VectorXf defined signal intead of wavetable. If not, the shift of sample will increase the rank of the matrix A in digital cancellation algorithm, which will influence channel estimation. By now, I have realized VectorXf based funcion of singal generation in tranceler_mt_rt\_final.  
 
 #### 3. Function and header file
 digital\_SIC.cpp, rcos\_filter.cpp contain functions. They are now rewritten into every source file.
@@ -35,7 +37,27 @@ transceiver_canceler_multi\_tone.cpp, tranceler_multi_tone\_rt.cpp tranceler_mt_
 
 * tranceler_multi_tone\_rt.cpp adds real time and signal synchronization parts and the cancellation hasn't been tested yet. 
 
-* tranceler_mt_rt\_final.cpp has several changes compared to code above: 1) based on VectorXcf instead of vector; 2) move x2A(), greater1() and peaks() to header file nonlinear\_peak.hpp; 3) modify transmitter(), receiver() and digital\_canceler() to make them suitable for multi-tone sine wave.
+* tranceler_mt_rt\_final.cpp, the latest version of cancellation example, has several changes compared to code above: 
+  1) based on VectorXcf instead of vector; 
+  2) move x2A(), greater1() and peaks() to header file nonlinear\_peak.hpp; 
+  3) modify transmitter(), receiver() and digital\_canceler() to make them suitable for multi-tone sine wave;
+  4) generate multi-tone sine wave precisely in function mt_sine_generation().
+  About running the example, please see the section *How to run the example* below. After make the project, there are two ways to test it. The first is directly typing command
+  ```
+  ./tranceler_mt_rt_final
+  ```
+  , and then it will set four-tone sine wave with frequency 100 kHz, 200 kHz, 300 kHz, 400 kHz.
+  The second is to set the parameters manually. Two formats for setting are provided as following. 
+  1) Input wave num, wave freq 1 and wave spacing to generate a equidistant multi-tone sine wave, e.g,
+  ```
+  ./tranceler_mt_rt_final --wave-num 3 --wave-freq-1 200e3 -- wave-space 200e3
+  ```
+  generates a two-tone sine wave with frequency 200e3, 400e3, 600e3.
+  2) Input at most 8 tone frequency straightforward.
+  ```
+  ./tranceler_mt_rt_final --freq-1 200e3 --freq-2 400e3 --freq-3 600e3
+  ```
+  generates the same multi-tone sine wave as 1).
 
 
 #### 3. QPSK signal
