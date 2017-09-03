@@ -51,13 +51,13 @@ transceiver_canceler_multi\_tone.cpp, tranceler_multi_tone\_rt.cpp tranceler_mt_
   
   The second is to set the parameters manually. Two formats for setting are provided as following. 
   
-  1) Input wave num, wave freq 1 and wave spacing to generate a equidistant multi-tone sine wave, e.g,
+  1. Input wave num, wave freq 1 and wave spacing to generate a equidistant multi-tone sine wave, e.g,
   ```
   ./tranceler_mt_rt_final --wave-num 3 --wave-freq-1 200e3 -- wave-space 200e3
   ```
   generates a two-tone sine wave with frequency 200e3, 400e3, 600e3.
   
-  2) Input at most 8 tone frequency straightforward.
+  2. Input at most 8 tone frequency straightforward.
   ```
   ./tranceler_mt_rt_final --freq-1 200e3 --freq-2 400e3 --freq-3 600e3
   ```
