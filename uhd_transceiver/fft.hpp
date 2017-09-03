@@ -158,47 +158,33 @@ void unsanitize_fft(double* input_real, double* input_imag, uint64_t size)
     }
 }
 
-double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw, double rg, double *ary = 0) 	// fc: center frequency; bw: bandwidth; not tested
+double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw, double rg, double *ary = 0) 	// fc: center frequency; bw: bandwidth;
 {
 	int ly[2] = {y.size(), y_clean.size()};
 	int L = max(y.size(), y_clean.size());
 	int N_fft = pow(2, (int)log2(L) + 1);
 	MatrixXf signal(N_fft, 2);
 	
-	// complete the  col vector by 0s for FFT, very stupid code
+	// complete the  col vector by 0s for FFT
 	signal.col(0) << y, VectorXf::Zero(N_fft - y.size()) ;
-	signal.col(1) << y_clean, VectorXf::Zero(N_fft - y.size());
-
-/*
-	signal.col(0).segment(0, y.size()) = y ;
-	signal.col(0).segment(y.size(), N_fft - y.size()) = VectorXf::Zero(N_fft - y.size()) ;
-	signal.col(1).segment(0, y_clean.size()) = y_clean ;
-	signal.col(1).segment(y_clean.size(), N_fft - y_clean.size()) = VectorXf::Zero(N_fft - y.size()) ;
-*/
+	signal.col(1) << y_clean, VectorXf::Zero(N_fft - y_clean.size());
 
 	float* P_db = new float[2];
 	int fl_id = ( (fc - rg/2) /rate + 0.5 )*N_fft;	
 	int fr_id = ( (fc + rg/2) /rate + 0.5 )*N_fft;	
-
-	// cout some mediate results
-	//cout<<"\n-- N fft = "<<N_fft<<endl;
-/*	cout<<"-- y norm = "<<y.norm()<<endl;
-	cout<<"-- y_clean norm = "<<y_clean.norm()<<endl;
-	cout<<"-- fl_id = "<<fl_id<<" 	 fr_id = "<<fr_id<<endl;
-*/
 	
 	for(int i = 0; i < 2; i ++)
 	{
 		VectorXd x = signal.col(i).cast<double>();
-		VectorXcd fx(N_fft);
+		VectorXd fx_real(N_fft), fx_imag(N_fft);
 
-		fft(x.data(), NULL, N_fft, fx.real().data(), fx.imag().data());		// it's half-normalized
-		VectorXd fxn = fx.array().abs()  /(double) ly[i] *2;			// actually not right
+		fft(x.data(), NULL, N_fft, fx_real.data(), fx_imag.data());		// it's half-normalized
+		ArrayXd fx_abs = (fx_real.array().square() + fx_imag.array().square()).sqrt();
+		VectorXd fxn = fx_abs.matrix() * (double)sqrt(N_fft) / (double) ly[i] * 2;
 		
 		VectorXd Px(N_fft), temp(N_fft);
 		Px.array() = 10*log10(fxn.array().square() /100 * 1000);		// calculate power spectrum in dB
-		temp.segment(0, N_fft/2) = Px.segment(N_fft/2, N_fft/2);		// fftshift
-		temp.segment(N_fft/2, N_fft/2) = Px.segment(0, N_fft/2);
+		temp << Px.segment(N_fft/2, N_fft/2), Px.segment(0, N_fft/2);		// fft shift
 		Px = temp;
 		
 		if(!i)
@@ -209,17 +195,6 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 			fr_id = fl_id + peak_id - 1 + k;
 			fl_id = fl_id + peak_id - 1 - k;
 		}
-
-		//cout some results
-/*
-		cout<<endl<<"-- fx norm = "<<fxn.norm()<<endl;
-		cout<<"fx real norm = "<<fx.real().norm()<<endl;
-		cout<<"fx imag norm = "<<fx.imag().norm()<<endl;
-		cout<<"-- max(Px) = "<<Px.maxCoeff()<<endl;
-		cout<<"-- min(Px) = "<<Px.minCoeff()<<endl;
-*/
-		//cout<<"-- fl_id = "<<fl_id<<" 	 fr_id = "<<fr_id<<endl;
-
 
 		P_db[i] = Px.segment(fl_id, fr_id - fl_id + 1).mean(); 
 	} 
@@ -234,8 +209,6 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
  	ary[0] = P_db[0];
 	ary[1] = P_db[1];
 	return result;
-	//return P_db[0] - P_db[1];
-
 }
 
 
