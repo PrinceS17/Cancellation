@@ -38,10 +38,10 @@ transceiver_canceler_multi\_tone.cpp, tranceler_multi_tone\_rt.cpp tranceler_mt_
 * tranceler_multi_tone\_rt.cpp adds real time and signal synchronization parts and the cancellation hasn't been tested yet. 
 
 * tranceler_mt_rt\_final.cpp, the latest version of cancellation example, has several changes compared to code above: 
-  1) based on VectorXcf instead of vector; 
-  2) move x2A(), greater1() and peaks() to header file nonlinear\_peak.hpp; 
-  3) modify transmitter(), receiver() and digital\_canceler() to make them suitable for multi-tone sine wave;
-  4) generate multi-tone sine wave precisely in function mt_sine_generation().
+  1.  based on VectorXcf instead of vector; 
+  2.  move x2A(), greater1() and peaks() to header file nonlinear\_peak.hpp; 
+  3.  modify transmitter(), receiver() and digital\_canceler() to make them suitable for multi-tone sine wave;
+  4.  generate multi-tone sine wave precisely in function mt_sine_generation().
   
   About running the example, please see the section *How to run the example* below. After make the project, there are two ways to test it. The first is directly typing command
   ```
