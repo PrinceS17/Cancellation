@@ -158,7 +158,7 @@ void unsanitize_fft(double* input_real, double* input_imag, uint64_t size)
     }
 }
 
-double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw, double rg, double *ary = 0) 	// fc: center frequency; bw: bandwidth; not tested
+double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw, double rg, double *ary = 0) 	// fc: center frequency; bw: bandwidth;
 {
 	int ly[2] = {y.size(), y_clean.size()};
 	int L = max(y.size(), y_clean.size());
@@ -172,13 +172,6 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 	float* P_db = new float[2];
 	int fl_id = ( (fc - rg/2) /rate + 0.5 )*N_fft;	
 	int fr_id = ( (fc + rg/2) /rate + 0.5 )*N_fft;	
-
-	// cout some mediate results
-	//cout<<"\n-- N fft = "<<N_fft<<endl;
-/*	cout<<"-- y norm = "<<y.norm()<<endl;
-	cout<<"-- y_clean norm = "<<y_clean.norm()<<endl;
-	cout<<"-- fl_id = "<<fl_id<<" 	 fr_id = "<<fr_id<<endl;
-*/
 	
 	for(int i = 0; i < 2; i ++)
 	{
@@ -186,7 +179,6 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 		VectorXd fx_real(N_fft), fx_imag(N_fft);
 
 		fft(x.data(), NULL, N_fft, fx_real.data(), fx_imag.data());		// it's half-normalized
-		//VectorXd fxn = fx.array().abs() * (double)sqrt(N_fft) / (double) ly[i] * 2;		// wrong to use VectorXcf fx!!!
 		ArrayXd fx_abs = (fx_real.array().square() + fx_imag.array().square()).sqrt();
 		VectorXd fxn = fx_abs.matrix() * (double)sqrt(N_fft) / (double) ly[i] * 2;
 		
@@ -204,15 +196,6 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 			fl_id = fl_id + peak_id - 1 - k;
 		}
 
-		//cout some results
-/*
-		cout<<endl<<"-- fx norm = "<<fxn.norm()<<endl;
-		cout<<"fx real norm = "<<fx.real().norm()<<endl;
-		cout<<"fx imag norm = "<<fx.imag().norm()<<endl;
-		cout<<"-- max(Px) = "<<Px.maxCoeff()<<endl;
-		cout<<"-- min(Px) = "<<Px.minCoeff()<<endl;
-*/
-		//cout<<"-- fl_id = "<<fl_id<<" 	 fr_id = "<<fr_id<<endl;
 		P_db[i] = Px.segment(fl_id, fr_id - fl_id + 1).mean(); 
 	} 
 		
@@ -226,8 +209,6 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
  	ary[0] = P_db[0];
 	ary[1] = P_db[1];
 	return result;
-	//return P_db[0] - P_db[1];
-
 }
 
 

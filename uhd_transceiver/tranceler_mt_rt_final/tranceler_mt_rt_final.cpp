@@ -114,7 +114,7 @@ VectorXf digital_canceler(
 	cout<<"-- preamble_length: "<<preamble_length<<endl;
 	cout<<"-- pilot_length: "<<pilot_length<<endl<<endl;
 	
-	int delay_const = 1.38e5;		// default constant of TX, RX delay
+	int delay_const = 1.2e5;		// default constant of TX, RX delay
 	int can_num = 0;					// # of cancellation iterations
 	int num[3] = {0, 0, 0};			// # of samples written into file
 	ofstream outfile[3];
@@ -129,7 +129,7 @@ VectorXf digital_canceler(
 		int tx_num = global_num[0];
 		int rx_num = global_num[1];
 		
-		if(rx_num <= delay_const / spb + 2)		// avoid reading 0s when there's no signal in global buffers
+		if(rx_num <= delay_const / spb + 3)		// avoid reading 0s when there's no signal in global buffers
 		{
 			mtx.unlock();
 			continue;
@@ -348,7 +348,9 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 	float ampl;
 
 	double wave_freq_1, wave_space;								// about multi-sine generation
-	int wave_num;												// 4 tones by default
+	int wave_num;										// 4 tones by default
+	
+	VectorXf w_freq(8);									// for all frequency: should be different from wave_freq
 
 	uhd::set_thread_priority();
 
@@ -363,11 +365,19 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 		("wave-num", po::value<int>(&wave_num)->default_value(4), "number of sine wave tones")
 		("wave-freq-1", po::value<double>(&wave_freq_1)->default_value(100e3), "1st waveform frequency in Hz")
 		("wave-space", po::value<double>(&wave_space)->default_value(100e3), "spacing between adjacent tones")
+		("freq-1", po::value<float>(&w_freq(0))->default_value(0), "1st tone of sine wave")
+		("freq-2", po::value<float>(&w_freq(1))->default_value(0), "2nd tone of sine wave")
+		("freq-3", po::value<float>(&w_freq(2))->default_value(0), "3rd tone of sine wave")
+		("freq-4", po::value<float>(&w_freq(3))->default_value(0), "4th tone of sine wave")
+		("freq-5", po::value<float>(&w_freq(4))->default_value(0), "5th tone of sine wave")
+		("freq-6", po::value<float>(&w_freq(5))->default_value(0), "6th tone of sine wave")
+		("freq-7", po::value<float>(&w_freq(6))->default_value(0), "7th tone of sine wave")
+		("freq-8", po::value<float>(&w_freq(7))->default_value(0), "8th tone of sine wave")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
 	po::notify(vm);
-	
+
 
 	// set the usrp
 	uhd::usrp::multi_usrp::sptr tx_usrp = uhd::usrp::multi_usrp::make(tx_args);
@@ -392,7 +402,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 	rx_usrp->set_rx_gain(rx_gain);
 	
 	tx_usrp->set_tx_subdev_spec(subdev);
-	rx_usrp->set_rx_subdev_spec(subdev);    // tx the same as rx?
+	rx_usrp->set_rx_subdev_spec(subdev);
 
 	std::cout<<boost::format("Using TX Device: %s") % tx_usrp->get_pp_string()<<endl;
 	std::cout<<boost::format("Using RX Device: %s") % rx_usrp->get_pp_string()<<endl;
@@ -409,7 +419,14 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 	// calculate multi-tone sine wave: get tone freqs and generate mt_sine
 	VectorXf t = VectorXf::LinSpaced(spb, 1, spb)/rate;
 	VectorXf temp = VectorXf::Zero(spb);
-	VectorXf wave_freq = VectorXf::LinSpaced(wave_num, wave_freq_1, wave_freq_1 + (wave_num - 1)*wave_space);
+	VectorXf wave_freq;
+	if(!w_freq(0))				// if freq-1 is 0, then choose 1st way to generate mt_sine
+		 wave_freq = VectorXf::LinSpaced(wave_num, wave_freq_1, wave_freq_1 + (wave_num - 1)*wave_space);
+	else 
+	{	
+		wave_num = (w_freq.array() > 0).count();
+		wave_freq = w_freq.segment(0, wave_num);	
+	}
 	for(int i = 0; i < wave_num; i ++)
 		temp.array() = temp.array() + ampl / wave_num * (2*pi*wave_freq[i]*t).array().sin() ;
 	VectorXcf mt_sine = temp.cast<complex <float> > ();
@@ -464,7 +481,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 	int pilot_length = 600;
 	int signal_length = spb;
 	int len[4] = {estimator_length, preamble_length, pilot_length, signal_length};
-	VectorXf preamble = mt_sine.segment(1, preamble_length).real();
+	VectorXf preamble = mt_sine.segment(0, preamble_length).real();
 
 	
 	// set up threads for transmitter and digital canceler
