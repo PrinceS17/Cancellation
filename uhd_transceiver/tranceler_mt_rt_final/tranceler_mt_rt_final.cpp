@@ -44,6 +44,25 @@ int gsize;
 
 void sig_int_handler (int) {stop_signal_called = true;}
 
+// generate mt_sine to send
+VectorXcf mt_sine_generation(VectorXf &w_freq, VectorXf &wave_freq, int wave_num, double wave_freq_1, double wave_space, int spb, double rate, double ampl)
+{	
+
+	VectorXf t = VectorXf::LinSpaced(spb, 1, spb)/rate;
+	VectorXf temp = VectorXf::Zero(spb);
+	if(!w_freq(0))				// if freq-1 is 0, then choose 1st way to generate mt_sine
+		 wave_freq = VectorXf::LinSpaced(wave_num, wave_freq_1, wave_freq_1 + (wave_num - 1)*wave_space);
+	else 					// else, get the frequency from input
+	{	
+		wave_num = (w_freq.array() > 0).count();
+		wave_freq = w_freq.segment(0, wave_num);	
+	}
+	for(int i = 0; i < wave_num; i ++)
+		temp.array() = temp.array() + ampl / wave_num * (2*pi*wave_freq[i]*t).array().sin() ;
+	VectorXcf mt_sine = temp.cast<complex <float> > ();
+	return mt_sine;
+
+}
 
 // digital canceler part
 int dg_sync(VectorXf &preamble, VectorXf &rbuff)	// use preamble to get delay in rbuff
@@ -416,22 +435,11 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 	tx_usrp->set_time_now(0.0);
 	
 
-	// calculate multi-tone sine wave: get tone freqs and generate mt_sine
-	VectorXf t = VectorXf::LinSpaced(spb, 1, spb)/rate;
-	VectorXf temp = VectorXf::Zero(spb);
+	// calculate multi-tone sine wave
 	VectorXf wave_freq;
-	if(!w_freq(0))				// if freq-1 is 0, then choose 1st way to generate mt_sine
-		 wave_freq = VectorXf::LinSpaced(wave_num, wave_freq_1, wave_freq_1 + (wave_num - 1)*wave_space);
-	else 
-	{	
-		wave_num = (w_freq.array() > 0).count();
-		wave_freq = w_freq.segment(0, wave_num);	
-	}
-	for(int i = 0; i < wave_num; i ++)
-		temp.array() = temp.array() + ampl / wave_num * (2*pi*wave_freq[i]*t).array().sin() ;
-	VectorXcf mt_sine = temp.cast<complex <float> > ();
+	VectorXcf mt_sine = mt_sine_generation(w_freq, wave_freq, wave_num, wave_freq_1, wave_space, spb, rate, ampl);
 
-	
+
 	// set global buffers
 	int num_buff = 1000;
 	global_rx = VectorXcf::Zero(num_buff * spb);
