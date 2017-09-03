@@ -183,10 +183,12 @@ double sic_db(VectorXf &y, VectorXf &y_clean, double rate, double fc, double bw,
 	for(int i = 0; i < 2; i ++)
 	{
 		VectorXd x = signal.col(i).cast<double>();
-		VectorXcd fx(N_fft);
+		VectorXd fx_real(N_fft), fx_imag(N_fft);
 
-		fft(x.data(), NULL, N_fft, fx.real().data(), fx.imag().data());		// it's half-normalized
-		VectorXd fxn = fx.array().abs()  /(double) ly[i] *2;			// actually not right
+		fft(x.data(), NULL, N_fft, fx_real.data(), fx_imag.data());		// it's half-normalized
+		//VectorXd fxn = fx.array().abs() * (double)sqrt(N_fft) / (double) ly[i] * 2;		// wrong to use VectorXcf fx!!!
+		ArrayXd fx_abs = (fx_real.array().square() + fx_imag.array().square()).sqrt();
+		VectorXd fxn = fx_abs.matrix() * (double)sqrt(N_fft) / (double) ly[i] * 2;
 		
 		VectorXd Px(N_fft), temp(N_fft);
 		Px.array() = 10*log10(fxn.array().square() /100 * 1000);		// calculate power spectrum in dB

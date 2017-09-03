@@ -170,10 +170,10 @@ VectorXf digital_canceler(
 
 
 		// calculate the cancellation and std output
-		double bw = 200;
+		double bw = 2 * samp_rate / (double)signal_length;
 		double rg = 5e3;
 		int wave_num = wave_freq.size();	
-		if(can_num%100 == 0)
+		if(can_num%50 == 0)
 		{	
 			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num<<" , Cancel No. "<<can_num * signal_length / spb<<endl;
 			
