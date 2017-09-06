@@ -1,7 +1,7 @@
 ### Introduction
 This is folder of Matlab code of digital SI cancellation for the full-duplex system. I use Matlab to not only simulate SIC to verify the digital cancellation algorithm but also visualize and test the results from USRP. Basically, they can be classified into 3 parts: SIC for sine wave, SIC for QPSK signal and test code for TX, RX from USRP. 
 
-For the detail of digital SIC algorithm, please refer to the digital cancellation part of [*Full Duplex Radio*][1].
+For the detail of digital SIC algorithm, please refer to the digital cancellation part of [*Full Duplex Radio*][1]\[1\].
 
 ### SIC for sine wave
 This part contains code for the simulation and test for single sine wave and is located in *dg_sic_sine* folder. Main source files are dgSIC_sine_0.m, dgSIC_sine_rx\_1.m and dg\_sic.m, mat\_generation.m are functions that most related to them.
@@ -28,6 +28,9 @@ Source files that have prefix "test" are test code for signals from USRP like TX
 
 ### Other functions
 * figure\_sic.m is used to plot all the TX and RX results: channel h, preamble, pilot, data and spectrum. It is often called by simulation code where preamble and h can be easily obtained.
+
+### Reference
+[1] Bharadia, D., McMilin, E., & Katti, S. (2013). Full duplex radios. ACM SIGCOMM Computer Communication Review, 43(4), 375-386.
 
 [1]:https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&cad=rja&uact=8&ved=0ahUKEwjI4K7U1JHWAhVH9IMKHR2xD0sQFghuMAA&url=https%3A%2F%2Fwww.stanford.edu%2F~skatti%2Fpubs%2Fsigcomm13-fullduplex.pdf&usg=AFQjCNGZDqwpXhxTrJmdkXovcJt1N28TkQ
 
