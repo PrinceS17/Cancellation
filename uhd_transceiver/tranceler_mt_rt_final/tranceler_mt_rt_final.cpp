@@ -140,6 +140,7 @@ VectorXf digital_canceler(
 	for(int i = 0; i < 3; i ++)
 		outfile[i].open(file[i].c_str(), ios::out | ios::binary);
 	VectorXf x(signal_length), y(signal_length);
+	float result_av = 0;
 
 	while(! stop_signal_called)
 	{
@@ -192,7 +193,8 @@ VectorXf digital_canceler(
 		double bw = 2 * samp_rate / (double)signal_length;
 		double rg = 5e3;
 		int wave_num = wave_freq.size();	
-		if(can_num%50 == 0)
+		int prd = 20;
+		if(can_num % prd == 0)
 		{	
 			cout<<"-- TX No. "<<tx_num<<" , RX No. "<<rx_num<<" , Cancel No. "<<can_num * signal_length / spb<<endl;
 			
@@ -206,7 +208,18 @@ VectorXf digital_canceler(
 				cout<<"   "<<wave_freq[i]/1e3<<" kHz: "<<setprecision(3)<< result[i]<<" dB, "<< ary[i][0]<<" -> "<< ary[i][1]<<" dB"<<endl;
 			}
 			cout<<"   Total: "<<setprecision(3)<<result.mean()<<" dB"<<endl;
+			
+			// calculate average cancellation result
+			if(can_num / prd < 11) result_av += result.mean();
+			if(can_num == prd*10) 
+			{
+				result_av /= 10;
+				cout<<"-- result_av == "<<result_av<<endl<<endl;
+			}
 		}
+
+		
+		
 		
 		// write results to file
 		float * ptr[3] = {x.data(), y.data(), y_clean.data()};
@@ -358,7 +371,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[])
 
 	double freq, gain, total_num_samps, total_time, bw;		// default setting 
 	freq = 915e6;
-	gain = 25;
+	gain = 65;
 	bw = 1e6;
 	total_num_samps = 0;
 	total_time = 20;
