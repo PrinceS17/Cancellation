@@ -45,7 +45,7 @@ Source files that have prefix "test" are test code for signals from USRP like TX
 
 * mat\_generation.m is used to generate TX matrix given nonlinear dimension. 
 
-* pickpeaks.m is a function to find the several biggest peaks and is used in the synchronization part of dg\_sic.m and dg_sic_qpsk.m. It is a source file from Mathworks and thank Antoine Liutkus for his work. For more details, refer to [pickpeaks(V, select, display)][2].
+* pickpeaks.m is a function to find the several biggest peaks and is used in the synchronization part of dg\_sic.m and dg_sic_qpsk.m. It is a source file from Mathworks and thank Antoine Liutkus for his work. For more details, refer to [pickpeaks(V, select, display)][2]\[2\].
 
 * plot\_sic.m is a function to plot the spectrum result of TX, RX (SI) and y\_clean (residual SI). It is called in figure\_sic.m.
 
@@ -53,6 +53,8 @@ Source files that have prefix "test" are test code for signals from USRP like TX
 
 ### Reference
 \[1\] Bharadia, D., McMilin, E., & Katti, S. (2013). Full duplex radios. ACM SIGCOMM Computer Communication Review, 43(4), 375-386.
+
+\[2\] Antoine Liutkus. Scale-Space Peak Picking. [Research Report] Inria Nancy - Grand Est (Villers-lès-Nancy, France). 2015.
 
 [1]:https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&cad=rja&uact=8&ved=0ahUKEwjI4K7U1JHWAhVH9IMKHR2xD0sQFghuMAA&url=https%3A%2F%2Fwww.stanford.edu%2F~skatti%2Fpubs%2Fsigcomm13-fullduplex.pdf&usg=AFQjCNGZDqwpXhxTrJmdkXovcJt1N28TkQ
 
