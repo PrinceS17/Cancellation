@@ -6,33 +6,21 @@ close all
 rate = 2e6;
 freq = 100e3;
 signal_length = 1e4;
-estimator_length = 42;
-estimator_start = 30;
-pilot_length = 999;
-data_length = 200;
+
+pilot_length = 400;
+estimator_length = 26;
+estimator_start = 38;
+
+data_length = 7000;
 t = (1:signal_length)/rate;
 dim = 1;
 
 %% obtain the transmitted signal also from file
-% x = 1*sin(2*pi*freq*t);
-% 
-%  fid = fopen('tx_out');
-% a = fread(fid, [2, inf], 'float');
-% x = a(1,1:signal_length) + 1i*a(2,1:signal_length);
-% x = real(x);
-% fclose(fid);
-% 
-% %% obtain the received SINE wave from data file
-% fid = fopen('sine_wave_M');
-% a = fread(fid, [2, inf], 'float');
-% st = 2e6;
-% y = a(1,st:st + signal_length - 1) + 1i*a(2,st:st + signal_length - 1);
-% y = real(y);     % only use real part now
-% fclose(fid);
 
-load xyz.mat
-x = pilot_I';
-y = v_pilot_avg_d;
+load sine_2M.mat
+start = 5e5;
+x = tx_sine(1, start + 1:start + signal_length);
+y = rx_sine(1, start + 1:start + signal_length);
 
 %% digital cancellation
 y_clean = dg_sic(x,y,rate,freq,data_length,estimator_length,estimator_start,pilot_length,signal_length,dim);
