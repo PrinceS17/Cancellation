@@ -21,23 +21,26 @@ preamble = x(1:N_T);
 %% synchronization: detect corresponding y(n)
 % Cor = xcorr(y,[zeros(1,L-n),x(start - k:start + n - k -1)]);
 Cor = xcorr(y, [zeros(1, ly - N_T), preamble]);
-loc = pickpeaks(Cor,round(length(Cor)/2));          % ideal situation: just find peaks
+loc = pickpeaks(Cor,round(length(Cor)/2));         % ideal situation: just find peaks
 loc = loc(Cor(loc) > 0.9*max(Cor));                % choose peaks that are not too small
 location = min(loc);
-st_rcv = location - N_T + 1;        % y(st_rcv) -> x(start)
-st_rcv = 1;
-
-while st_rcv <= 0
-   st_rcv = st_rcv + N_T;
+delay = location ;                           % y(st_rcv) -> x(start)
+if delay < 0
+    'Error: delay is negative!'
 end
-delay = st_rcv - 1,
+
+% delay = k - 1;
+st_rcv = start + delay;
 
 %% estimation of pilot & figure of h
 dim,
 A0 = mat_generation(x, start, n, k, dim);  
-rank_A = rank(A0),
 A_inv = pinv(A0);
 h = A_inv*y(st_rcv:st_rcv + n)';
+
+%% output for debug
+rank_A = rank(A0),
+norm_h = norm(h),
 
 %% cancellation: supposed received signal - SI: A*h
 N = data_length;
