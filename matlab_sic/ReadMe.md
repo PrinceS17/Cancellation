@@ -12,7 +12,7 @@ The example of this part is digSIC_sine_rx\_1.m, which can run from Matlab and s
 
 * digSIC_sine_rx\_1.m is for the test of SIC algorithm in Matlab. It obtains TX and RX signals from UHD transceiver for single sine wave and then calls dg\_sic() and mat\_generation() to do the cancellation. It can both do the linear and the nonlinear cancellation by changing the parameter *dim*. Since it is for offline cancellation, the program only works for TX/RX signal with length of *signal_length*. A signal consists of preamble(not necessary for sine wave), pilot and data and I use an estimator which scans from i-k to i+k-1. Their length are defined as *estimator_length, pilot_length*.   
 
-  By default, it will read from sine\_2M.mat to get TX and RX signal and do the cancellation.
+  By default, it will read from sine\_data.mat to get TX and RX signal and do the cancellation.
 
 * dg\_sic.m is the SIC function for dig_sine_rx\_1.m. It does synchronization for TX and RX signal, does the cancellation (linear and nonlinear are both allowed) and plot the result using general function figure\_sic.m.
 
