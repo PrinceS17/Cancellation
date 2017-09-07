@@ -1,6 +1,7 @@
 % received signal from sine wave, do the cancellation
 clear
 close all
+addpath(genpath('D:/ѧϰ/Flexicon/04code/matlab_sic/'));
 
 %% parameter definition
 rate = 2e6;
@@ -17,7 +18,7 @@ dim = 1;
 
 %% obtain the transmitted signal also from file
 
-load sine_2M.mat
+load sine_data.mat
 start = 5e5;
 x = tx_sine(1, start + 1:start + signal_length);
 y = rx_sine(1, start + 1:start + signal_length);
