@@ -14,8 +14,11 @@ Nonlinear cancellation prove reliable as long as generated sine wave has a preci
 
 #### 3. Function and header file
 digital\_SIC.cpp, rcos\_filter.cpp contain functions. They are now rewritten into every source file.
+
 wavetable.hpp, fft.hpp are header files. The former is to generate different signals and the latter is to realize fft and sic\_db().
-sic\_db.cpp is used to calculate the cancellation result in dB through a fft block from github. Now it is in fft.hpp.
+
+sic\_db.cpp is used to calculate the cancellation result in dB through a fft block from github. Thanks for wareya's work. See more at [Public-domain single-header FFT library (power-of-2 size case only)][1]. Now it is in fft.hpp.
+
 nonlinear.cpp is used to generate matrix A with nonlinear components for nonlinear cancellation. It also contains a back up of x2A() for linear cancellation only before.
 
 ### Classification by signal
@@ -92,3 +95,5 @@ make
 ```
 
 Notice that if your library or Eigen need root to access, you need to use "sudo make" instead of "make" to make the program.
+
+[1]:https://github.com/wareya/fft
