@@ -4,7 +4,9 @@ This is folder of Matlab code of digital SI cancellation for the full-duplex sys
 For the detail of digital SIC algorithm, please refer to the digital cancellation part of [Full Duplex Radio][1]\[1\].
 
 ### SIC for sine wave
-This part contains code for the simulation and test for single sine wave and is located in *dg_sic_sine* folder. Main source files are dgSIC_sine_0.m, dgSIC_sine_rx\_1.m and dg\_sic.m, mat\_generation.m are functions that most related to them. It also contains some dataf file.
+This part contains code for the simulation and test for single sine wave and is located in *dg_sic_sine* folder. Main source files are dgSIC_sine_0.m, dgSIC_sine_rx\_1.m and dg\_sic.m, mat\_generation.m are functions that most related to them. It also contains some data file.
+
+The example of this part is digSIC_sine_rx\_1.m, which can run from Matlab and show the result given necessary file.
 
 * digSIC_sine_0.m is for the simulation for single sine wave. It generates single sine wave as TX and sine wave with AWGN and ISI as RX. By running it, we can test the algorithm and get about 50 dB linear cancellation.
 
@@ -16,6 +18,8 @@ This part contains code for the simulation and test for single sine wave and is 
 
 ### SIC for QPSK signal
 This part contains code for QPSK cancellation like main_qpsk_r.m, main_qpsk_for\_c.m, dg_sic_qpsk.m and qpsk\_generation.m and data files like tx_file, rx_file.
+
+The example of this part is main_qpsk_for\_c.m, which can run from Matlab.
 
 * main_qpsk_r.m is used for test of SIC algorithm in Matlab. Like digSIC_sine_rx\_1.m, it obtains TX and RX signals from UHD transceiver for QPSK signal and then does the cancellation. Note that it need setting for the file path. Different from single sine wave, it needs manually setting the delay between TX and RX by choosing *tx_beg* through TX and RX plot. So the usage of this code is as following:
 
