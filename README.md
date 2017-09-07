@@ -9,3 +9,6 @@ This project is divided into several parts.
 
 * picture: some results about channel h, TX & RX preamble, pilot, data and spectrum.
 
+[1]:https://github.com/PrinceS17/Cancellation/blob/master/matlab_sic/ReadMe.md
+
+[2]:https://github.com/PrinceS17/Cancellation/blob/master/uhd_transceiver/ReadMe.md
