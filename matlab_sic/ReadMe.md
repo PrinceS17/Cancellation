@@ -4,16 +4,18 @@ This is folder of Matlab code of digital SI cancellation for the full-duplex sys
 For the detail of digital SIC algorithm, please refer to the digital cancellation part of [Full Duplex Radio][1]\[1\].
 
 ### SIC for sine wave
-This part contains code for the simulation and test for single sine wave and is located in *dg_sic_sine* folder. Main source files are dgSIC_sine_0.m, dgSIC_sine_rx\_1.m and dg\_sic.m, mat\_generation.m are functions that most related to them.
+This part contains code for the simulation and test for single sine wave and is located in *dg_sic_sine* folder. Main source files are dgSIC_sine_0.m, dgSIC_sine_rx\_1.m and dg\_sic.m, mat\_generation.m are functions that most related to them. It also contains some dataf file.
 
 * digSIC_sine_0.m is for the simulation for single sine wave. It generates single sine wave as TX and sine wave with AWGN and ISI as RX. By running it, we can test the algorithm and get about 50 dB linear cancellation.
 
 * digSIC_sine_rx\_1.m is for the test of SIC algorithm in Matlab. It obtains TX and RX signals from UHD transceiver for single sine wave and then calls dg\_sic() and mat\_generation() to do the cancellation. It can both do the linear and the nonlinear cancellation by changing the parameter *dim*. Since it is for offline cancellation, the program only works for TX/RX signal with length of *signal_length*. A signal consists of preamble(not necessary for sine wave), pilot and data and I use an estimator which scans from i-k to i+k-1. Their length are defined as *estimator_length, pilot_length*.   
 
+  By default, it will read from sine\_2M.mat to get TX and RX signal and do the cancellation.
+
 * dg\_sic.m is the SIC function for dig_sine_rx\_1.m. It does synchronization for TX and RX signal, does the cancellation (linear and nonlinear are both allowed) and plot the result using general function figure\_sic.m.
 
 ### SIC for QPSK signal
-This part contains code for QPSK cancellation like main_qpsk_r.m, main_qpsk_for\_c.m, dg_sic_qpsk.m and qpsk\_generation.m.
+This part contains code for QPSK cancellation like main_qpsk_r.m, main_qpsk_for\_c.m, dg_sic_qpsk.m and qpsk\_generation.m and data files like tx_file, rx_file.
 
 * main_qpsk_r.m is used for test of SIC algorithm in Matlab. Like digSIC_sine_rx\_1.m, it obtains TX and RX signals from UHD transceiver for QPSK signal and then does the cancellation. Note that it need setting for the file path. Different from single sine wave, it needs manually setting the delay between TX and RX by choosing *tx_beg* through TX and RX plot. So the usage of this code is as following:
 
@@ -22,6 +24,8 @@ This part contains code for QPSK cancellation like main_qpsk_r.m, main_qpsk_for\
   3. comment writing TX part and use part below to read RX signal, do the cancellation and show the result.
 
 * main_qpsk_for\_c.m is similar to main_qpsk_r.m and the only difference is that it doesn't generate TX signal itself and read both TX and RX QPSK signal from UHD transceiver, which makes it more convenient for the test of QPSK cancellation. After visualizing the TX and RX, we can find the delay manually and set the start of buffer *st1, st2*. You can also change the length of signal, pilot, estimator and preamble.
+
+  By default, it reads binary file *tx_file, rx_file* as an example of QPSK cancellation.
 
 * qpsk\_generation.m is a function used to generate QPSK waveform from a symbol stream. Given roll-off coefficient *beta*, span of symbol and samples per symble, it can generate corresponding QPSK waveform by interpolation and convolution with raised cosine filter. It is used in main_qpsk_r.m. 
 
